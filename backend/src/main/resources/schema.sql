@@ -20,6 +20,9 @@ CREATE TABLE "UrbanAsset" (
 
 CREATE TABLE "Incident" (
                             id              INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+                            titulo          VARCHAR(100),
+                            descripcion     VARCHAR(400),
+                            categoria       VARCHAR(50),
                             reporte_central VARCHAR(400) NOT NULL,
                             urban_asset_id  INTEGER REFERENCES "UrbanAsset"(id),
                             localizacion    VARCHAR(200),

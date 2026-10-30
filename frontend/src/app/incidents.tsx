@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { CreateIncidentForm } from '@/components/create-incident-form';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
@@ -38,6 +39,8 @@ export default function IncidentsScreen() {
   const [incidentDetail, setIncidentDetail] = useState<Incident | null>(null);
   const [loadingDetail, setLoadingDetail] = useState<boolean>(false);
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
+  const [creatingIncident, setCreatingIncident] = useState(false);
+  const [creationSuccess, setCreationSuccess] = useState(false);
 
   const fetchIncidents = async () => {
     setLoadingList(true);
@@ -66,11 +69,12 @@ export default function IncidentsScreen() {
   };
 
   useEffect(() => {
-    if (selectedId) {
-      fetchDetail(selectedId);
-    } else {
-      fetchIncidents();
-    }
+    void Promise.resolve().then(() => {
+      if (selectedId) {
+        return fetchDetail(selectedId);
+      }
+      return fetchIncidents();
+    });
   }, [selectedId]);
 
   const handleSelectIncident = (id: number) => {
@@ -84,6 +88,12 @@ export default function IncidentsScreen() {
     setIncidentDetail(null);
     setErrorDetail(null);
     router.push('/incidents');
+  };
+
+  const handleIncidentCreated = async () => {
+    setCreatingIncident(false);
+    setCreationSuccess(true);
+    await fetchIncidents();
   };
 
   const contentPlatformStyle = Platform.select({
@@ -121,6 +131,11 @@ export default function IncidentsScreen() {
             onBack={handleBackToList}
             onRetry={() => fetchDetail(selectedId)}
           />
+        ) : creatingIncident ? (
+          <CreateIncidentForm
+            onCancel={() => setCreatingIncident(false)}
+            onCreated={handleIncidentCreated}
+          />
         ) : (
           // =================== VISTA LISTADO ===================
           <IncidentListView
@@ -130,6 +145,11 @@ export default function IncidentsScreen() {
             isDark={isDark}
             onSelectIncident={handleSelectIncident}
             onRetry={fetchIncidents}
+            onCreate={() => {
+              setCreationSuccess(false);
+              setCreatingIncident(true);
+            }}
+            creationSuccess={creationSuccess}
           />
         )}
       </View>
@@ -147,6 +167,8 @@ interface ListViewProps {
   isDark: boolean;
   onSelectIncident: (id: number) => void;
   onRetry: () => void;
+  onCreate: () => void;
+  creationSuccess: boolean;
 }
 
 function IncidentListView({
@@ -156,6 +178,8 @@ function IncidentListView({
   isDark,
   onSelectIncident,
   onRetry,
+  onCreate,
+  creationSuccess,
 }: ListViewProps) {
   return (
     <View style={styles.wrapper}>
@@ -167,13 +191,18 @@ function IncidentListView({
         </ThemedText>
       </View>
 
-      {/* Barra de acciones: Botón Crear Incidencia (solo visual) + Refrescar */}
+      {creationSuccess ? (
+        <ThemedView type="backgroundElement" style={styles.successBox}>
+          <ThemedText type="smallBold" style={styles.successText}>
+            Incidencia registrada correctamente.
+          </ThemedText>
+        </ThemedView>
+      ) : null}
+
       <View style={styles.actionsBar}>
         <Pressable
           style={({ pressed }) => [styles.createButton, pressed && styles.pressed]}
-          onPress={() => {
-            // Botón visual sin funcionalidad por ahora
-          }}>
+          onPress={onCreate}>
           <ThemedText type="smallBold" style={styles.createButtonText}>
             ➕ Crear Incidencia
           </ThemedText>
@@ -280,8 +309,14 @@ function IncidentListView({
                   </View>
 
                   <ThemedText type="default" style={styles.reporteTitle}>
-                    {inc.reporteCentral}
+                    {inc.titulo || inc.reporteCentral}
                   </ThemedText>
+
+                  {inc.descripcion && inc.descripcion !== (inc.titulo || inc.reporteCentral) ? (
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {inc.descripcion}
+                    </ThemedText>
+                  ) : null}
 
                   <View style={styles.cardFooter}>
                     {inc.localizacion ? (
@@ -293,6 +328,11 @@ function IncidentListView({
                     {inc.urbanAssetTipo ? (
                       <ThemedText type="small" themeColor="textSecondary">
                         🏙️ Activo: {inc.urbanAssetTipo}
+                      </ThemedText>
+                    ) : null}
+                    {inc.categoria ? (
+                      <ThemedText type="small" themeColor="textSecondary">
+                        🏷️ {inc.categoria}
                       </ThemedText>
                     ) : null}
                   </View>
@@ -401,12 +441,32 @@ function IncidentDetailView({
 
             <View style={styles.attributeRow}>
               <ThemedText type="smallBold" themeColor="textSecondary" style={styles.attributeLabel}>
-                Reporte Central:
+                Título:
               </ThemedText>
               <ThemedText type="default" style={styles.attributeValue}>
-                {incident.reporteCentral}
+                {incident.titulo || incident.reporteCentral}
               </ThemedText>
             </View>
+
+            <View style={styles.attributeRow}>
+              <ThemedText type="smallBold" themeColor="textSecondary" style={styles.attributeLabel}>
+                Descripción:
+              </ThemedText>
+              <ThemedText type="default" style={styles.attributeValue}>
+                {incident.descripcion || incident.reporteCentral}
+              </ThemedText>
+            </View>
+
+            {incident.categoria ? (
+              <View style={styles.attributeRow}>
+                <ThemedText type="smallBold" themeColor="textSecondary" style={styles.attributeLabel}>
+                  Categoría:
+                </ThemedText>
+                <ThemedText type="default" style={styles.attributeValue}>
+                  {incident.categoria}
+                </ThemedText>
+              </View>
+            ) : null}
 
             <View style={styles.attributeRow}>
               <ThemedText type="smallBold" themeColor="textSecondary" style={styles.attributeLabel}>
@@ -686,6 +746,16 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.three,
     alignItems: 'center',
     marginHorizontal: Spacing.two,
+  },
+  successBox: {
+    padding: Spacing.three,
+    borderRadius: Spacing.three,
+    marginHorizontal: Spacing.two,
+    borderLeftWidth: 4,
+    borderLeftColor: '#16a34a',
+  },
+  successText: {
+    color: '#15803d',
   },
   listContainer: {
     gap: Spacing.three,

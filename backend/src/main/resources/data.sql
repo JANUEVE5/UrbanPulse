@@ -7,9 +7,12 @@ INSERT INTO "UrbanAsset" (tipo) VALUES
     ('Semáforo');
 
 INSERT INTO "Incident" (
-    reporte_central, urban_asset_id, localizacion,
+    titulo, descripcion, categoria, reporte_central, urban_asset_id, localizacion,
     estado, prioridad, id_creador
 ) VALUES (
+             'Semáforo fuera de servicio',
+             'El semáforo no funciona.',
+             'Tráfico',
              'El semáforo no funciona.',
              1,
              'Plaza Mayor',
