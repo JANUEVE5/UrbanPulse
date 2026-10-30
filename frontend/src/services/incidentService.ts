@@ -12,6 +12,9 @@ export interface StatusChange {
 export interface Incident {
   id: number;
   reporteCentral: string;
+  titulo?: string | null;
+  descripcion?: string | null;
+  categoria?: string | null;
   urbanAssetId?: number | null;
   urbanAssetTipo?: string | null;
   localizacion?: string | null;
@@ -30,6 +33,12 @@ const DEFAULT_API_URL = Platform.select({
 });
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || DEFAULT_API_URL;
+
+export interface CreateIncidentInput {
+  titulo: string;
+  descripcion: string;
+  categoria?: string;
+}
 
 /**
  * Obtiene todas las incidencias registradas en el backend.
@@ -87,6 +96,38 @@ export async function getIncidentById(id: number): Promise<Incident> {
   } catch (error: any) {
     console.error(`Error fetching incident #${id} from:`, url, error);
     if (error?.message?.includes('NetworkError') || error?.name === 'TypeError') {
+      throw new Error(
+        `No se pudo conectar con el servidor en ${url}. Verifica que el backend Spring Boot esté reiniciado y en ejecución.`
+      );
+    }
+    throw error;
+  }
+}
+
+/**
+ * Registra una incidencia y devuelve el recurso creado.
+ */
+export async function createIncident(input: CreateIncidentInput): Promise<Incident> {
+  const url = `${API_BASE_URL}/incidents`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(input),
+    });
+
+    if (!response.ok) {
+      const responseBody = await response.text();
+      throw new Error(responseBody || `Error ${response.status}: ${response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error: unknown) {
+    console.error('Error creating incident at:', url, error);
+    if (error instanceof TypeError) {
       throw new Error(
         `No se pudo conectar con el servidor en ${url}. Verifica que el backend Spring Boot esté reiniciado y en ejecución.`
       );
