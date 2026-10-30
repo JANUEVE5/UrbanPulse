@@ -1,5 +1,6 @@
 package com.example.urbanpulse.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -22,6 +23,7 @@ public class AppUser {
     @Column(name = "correo", nullable = false, unique = true, length = 150)
     private String correo;
 
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     @Column(name = "contraseña", nullable = false, length = 255)
     private String contrasena;
 
