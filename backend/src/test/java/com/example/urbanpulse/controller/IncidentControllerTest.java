@@ -1,6 +1,7 @@
 package com.example.urbanpulse.controller;
 
 import com.example.urbanpulse.dto.IncidentDTO;
+import com.example.urbanpulse.dto.CreateIncidentRequest;
 import com.example.urbanpulse.dto.StatusChangeDTO;
 import com.example.urbanpulse.service.IncidentService;
 import org.junit.jupiter.api.DisplayName;
@@ -17,6 +18,7 @@ import java.util.Optional;
 
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(IncidentController.class)
@@ -95,5 +97,47 @@ class IncidentControllerTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNotFound());
     }
-}
 
+    @Test
+    @DisplayName("POST /api/incidents debe crear una incidencia")
+    void testCreateIncident() throws Exception {
+        IncidentDTO dto = new IncidentDTO();
+        dto.setId(2);
+        dto.setTitulo("Bache en la calzada");
+        dto.setDescripcion("Hay un bache frente al número 12.");
+        dto.setCategoria("Vía pública");
+        dto.setReporteCentral("Hay un bache frente al número 12.");
+
+        when(incidentService.createIncident(org.mockito.ArgumentMatchers.any(CreateIncidentRequest.class)))
+                .thenReturn(dto);
+
+        mockMvc.perform(post("/api/incidents")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "titulo": "Bache en la calzada",
+                                  "descripcion": "Hay un bache frente al número 12.",
+                                  "categoria": "Vía pública"
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(2))
+                .andExpect(jsonPath("$.titulo").value("Bache en la calzada"))
+                .andExpect(jsonPath("$.descripcion").value("Hay un bache frente al número 12."))
+                .andExpect(jsonPath("$.categoria").value("Vía pública"));
+    }
+
+    @Test
+    @DisplayName("POST /api/incidents debe rechazar título vacío")
+    void testCreateIncidentWithBlankTitle() throws Exception {
+        mockMvc.perform(post("/api/incidents")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "titulo": " ",
+                                  "descripcion": "Hay un bache."
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+}

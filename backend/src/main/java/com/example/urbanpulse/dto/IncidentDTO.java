@@ -11,6 +11,9 @@ import java.util.stream.Collectors;
 public class IncidentDTO {
 
     private Integer id;
+    private String titulo;
+    private String descripcion;
+    private String categoria;
     private String reporteCentral;
     private Integer urbanAssetId;
     private String urbanAssetTipo;
@@ -38,6 +41,9 @@ public class IncidentDTO {
         IncidentDTO dto = new IncidentDTO();
         dto.setId(incident.getId());
         dto.setReporteCentral(incident.getReporteCentral());
+        dto.setTitulo(incident.getTitulo() != null ? incident.getTitulo() : incident.getReporteCentral());
+        dto.setDescripcion(incident.getDescripcion() != null ? incident.getDescripcion() : incident.getReporteCentral());
+        dto.setCategoria(incident.getCategoria());
 
         if (incident.getUrbanAsset() != null) {
             dto.setUrbanAssetId(incident.getUrbanAsset().getId());
@@ -81,6 +87,30 @@ public class IncidentDTO {
 
     public void setReporteCentral(String reporteCentral) {
         this.reporteCentral = reporteCentral;
+    }
+
+    public String getTitulo() {
+        return titulo;
+    }
+
+    public void setTitulo(String titulo) {
+        this.titulo = titulo;
+    }
+
+    public String getDescripcion() {
+        return descripcion;
+    }
+
+    public void setDescripcion(String descripcion) {
+        this.descripcion = descripcion;
+    }
+
+    public String getCategoria() {
+        return categoria;
+    }
+
+    public void setCategoria(String categoria) {
+        this.categoria = categoria;
     }
 
     public Integer getUrbanAssetId() {
@@ -163,4 +193,3 @@ public class IncidentDTO {
         this.historial = historial != null ? historial : new ArrayList<>();
     }
 }
-

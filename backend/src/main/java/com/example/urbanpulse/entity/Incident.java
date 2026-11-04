@@ -24,6 +24,15 @@ public class Incident {
     @Column(name = "reporte_central", nullable = false, length = 400)
     private String reporteCentral;
 
+    @Column(name = "titulo", length = 100)
+    private String titulo;
+
+    @Column(name = "descripcion", length = 400)
+    private String descripcion;
+
+    @Column(name = "categoria", length = 50)
+    private String categoria;
+
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "urban_asset_id")
     private UrbanAsset urbanAsset;
@@ -79,6 +88,30 @@ public class Incident {
         this.reporteCentral = reporteCentral;
     }
 
+    public String getTitulo() {
+        return titulo;
+    }
+
+    public void setTitulo(String titulo) {
+        this.titulo = titulo;
+    }
+
+    public String getDescripcion() {
+        return descripcion;
+    }
+
+    public void setDescripcion(String descripcion) {
+        this.descripcion = descripcion;
+    }
+
+    public String getCategoria() {
+        return categoria;
+    }
+
+    public void setCategoria(String categoria) {
+        this.categoria = categoria;
+    }
+
     public UrbanAsset getUrbanAsset() {
         return urbanAsset;
     }
@@ -127,4 +160,3 @@ public class Incident {
         this.createdAt = createdAt;
     }
 }
-

@@ -1,11 +1,13 @@
 package com.example.urbanpulse.service;
 
 import com.example.urbanpulse.dto.IncidentDTO;
+import com.example.urbanpulse.dto.CreateIncidentRequest;
 import com.example.urbanpulse.entity.AppUser;
 import com.example.urbanpulse.entity.Incident;
 import com.example.urbanpulse.entity.StatusChange;
 import com.example.urbanpulse.entity.UrbanAsset;
 import com.example.urbanpulse.repository.IncidentRepository;
+import com.example.urbanpulse.repository.AppUserRepository;
 import com.example.urbanpulse.repository.StatusChangeRepository;
 import com.example.urbanpulse.service.impl.IncidentServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,6 +33,9 @@ class IncidentServiceTest {
 
     @Mock
     private StatusChangeRepository statusChangeRepository;
+
+    @Mock
+    private AppUserRepository appUserRepository;
 
     @InjectMocks
     private IncidentServiceImpl incidentService;
@@ -111,5 +116,52 @@ class IncidentServiceTest {
         assertTrue(opt.isEmpty());
         verify(incidentRepository, times(1)).findById(99);
         verifyNoInteractions(statusChangeRepository);
+    }
+
+    @Test
+    @DisplayName("createIncident guarda los datos obligatorios y la categoría opcional")
+    void testCreateIncident() {
+        CreateIncidentRequest request = new CreateIncidentRequest();
+        request.setTitulo("  Bache en la calzada  ");
+        request.setDescripcion("  Hay un bache frente al número 12.  ");
+        request.setCategoria("  Vía pública  ");
+
+        when(appUserRepository.findFirstByOrderByIdAsc()).thenReturn(Optional.of(testUser));
+        when(incidentRepository.save(any(Incident.class))).thenAnswer(invocation -> {
+            Incident saved = invocation.getArgument(0);
+            saved.setId(2);
+            saved.setCreatedAt(LocalDateTime.now());
+            return saved;
+        });
+
+        IncidentDTO result = incidentService.createIncident(request);
+
+        assertEquals(2, result.getId());
+        assertEquals("Bache en la calzada", result.getTitulo());
+        assertEquals("Hay un bache frente al número 12.", result.getDescripcion());
+        assertEquals("Vía pública", result.getCategoria());
+        assertEquals("Abierta", result.getEstado());
+        assertEquals("Media", result.getPrioridad());
+        assertEquals(1, result.getIdCreador());
+        verify(incidentRepository).save(any(Incident.class));
+    }
+
+    @Test
+    @DisplayName("createIncident permite omitir la categoría")
+    void testCreateIncidentWithoutCategory() {
+        CreateIncidentRequest request = new CreateIncidentRequest();
+        request.setTitulo("Alumbrado apagado");
+        request.setDescripcion("La farola no enciende.");
+
+        when(appUserRepository.findFirstByOrderByIdAsc()).thenReturn(Optional.of(testUser));
+        when(incidentRepository.save(any(Incident.class))).thenAnswer(invocation -> {
+            Incident saved = invocation.getArgument(0);
+            saved.setId(2);
+            return saved;
+        });
+
+        IncidentDTO result = incidentService.createIncident(request);
+
+        assertNull(result.getCategoria());
     }
 }
