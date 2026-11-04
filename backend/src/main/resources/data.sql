@@ -1,5 +1,5 @@
 -- Datos de ejemplo
-INSERT INTO "User" (nombre, correo, contraseña) VALUES
+INSERT INTO "User" (nombre, correo, contrasena) VALUES
                                                     ('Ana García', 'ana@example.com', 'hash_de_ejemplo_1'),
                                                     ('Luis Pérez', 'luis@example.com', 'hash_de_ejemplo_2');
 

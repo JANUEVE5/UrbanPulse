@@ -24,7 +24,7 @@ public class AppUser {
     private String correo;
 
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
-    @Column(name = "contraseña", nullable = false, length = 255)
+    @Column(name = "contrasena", nullable = false, length = 255)
     private String contrasena;
 
     public AppUser() {
