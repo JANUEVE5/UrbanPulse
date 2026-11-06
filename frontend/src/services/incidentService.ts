@@ -18,6 +18,8 @@ export interface Incident {
   urbanAssetId?: number | null;
   urbanAssetTipo?: string | null;
   localizacion?: string | null;
+  latitud?: number | null;
+  longitud?: number | null;
   estado: string;
   prioridad: string;
   idCreador: number;
@@ -38,6 +40,8 @@ export interface CreateIncidentInput {
   titulo: string;
   descripcion: string;
   categoria?: string;
+  latitud: number;
+  longitud: number;
 }
 
 /**
