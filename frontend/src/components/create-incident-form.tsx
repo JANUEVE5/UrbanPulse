@@ -11,6 +11,7 @@ import {
 import * as Location from 'expo-location';
 
 import IncidentMapView from '@/components/IncidentMapView';
+import type { Coordinate, MapHandle, MapPressEvent } from '@/components/incident-map-view.types';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -35,18 +36,24 @@ const PRIORITIES = [
   { label: 'Alta', value: 'Alta', color: '#ef4444' },
 ];
 
+/** Muestra un aviso: alert() en web y Alert.alert() en nativo. */
+function showMessage(title: string, message: string) {
+  if (Platform.OS === 'web') {
+    alert(message);
+  } else {
+    Alert.alert(title, message);
+  }
+}
+
 export function CreateIncidentForm({ onCancel, onCreated }: CreateIncidentFormProps) {
   const theme = useTheme();
-  const mapRef = useRef<any>(null);
+  const mapRef = useRef<MapHandle | null>(null);
 
   const [titulo, setTitulo] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [categoria, setCategoria] = useState('');
   const [prioridad, setPrioridad] = useState('Media');
-  const [selectedCoordinate, setSelectedCoordinate] = useState<{
-    latitude: number;
-    longitude: number;
-  } | null>(null);
+  const [selectedCoordinate, setSelectedCoordinate] = useState<Coordinate | null>(null);
 
   const [region, setRegion] = useState(INITIAL_REGION);
   const [isLocating, setIsLocating] = useState(false);
@@ -54,8 +61,8 @@ export function CreateIncidentForm({ onCancel, onCreated }: CreateIncidentFormPr
   const [saving, setSaving] = useState(false);
 
   // Manejador al tocar en el mapa
-  const handleMapPress = (event: any) => {
-    const coordinate = event?.nativeEvent?.coordinate;
+  const handleMapPress = (event: MapPressEvent) => {
+    const coordinate = event.nativeEvent.coordinate;
     if (coordinate) {
       setSelectedCoordinate(coordinate);
     }
@@ -69,7 +76,7 @@ export function CreateIncidentForm({ onCancel, onCreated }: CreateIncidentFormPr
 
       if (status !== 'granted') {
         const msg = 'Se requiere permiso de ubicación para situar la incidencia en tu posición.';
-        Platform.OS === 'web' ? alert(msg) : Alert.alert('Permiso denegado', msg);
+        showMessage('Permiso denegado', msg);
         return;
       }
 
@@ -92,11 +99,11 @@ export function CreateIncidentForm({ onCancel, onCreated }: CreateIncidentFormPr
       };
 
       setRegion(targetRegion);
-      mapRef.current?.animateToRegion?.(targetRegion);
+      mapRef.current?.animateToRegion(targetRegion);
     } catch (err) {
       console.error('Error al obtener la posición actual:', err);
       const msg = 'No se pudo obtener la ubicación actual del dispositivo.';
-      Platform.OS === 'web' ? alert(msg) : Alert.alert('Error', msg);
+      showMessage('Error', msg);
     } finally {
       setIsLocating(false);
     }

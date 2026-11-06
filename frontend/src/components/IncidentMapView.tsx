@@ -2,16 +2,21 @@ import React from 'react';
 import { Platform, StyleSheet } from 'react-native';
 import MapView, { Marker, UrlTile } from 'react-native-maps';
 
+import type { IncidentMapViewProps } from './incident-map-view.types';
+
+/** Mapa de incidencias para Android/iOS (react-native-maps + teselas de OpenStreetMap). */
 export default function IncidentMapView({
   mapRef,
   region,
   initialRegion,
   onPress,
   selectedCoordinate,
-}) {
+}: IncidentMapViewProps) {
   return (
     <MapView
-      ref={mapRef}
+      ref={(instance) => {
+        if (mapRef) mapRef.current = instance;
+      }}
       style={styles.map}
       initialRegion={initialRegion}
       region={region}
@@ -35,8 +40,5 @@ export default function IncidentMapView({
 }
 
 const styles = StyleSheet.create({
-  map: {
-    ...StyleSheet.absoluteFillObject,
-  },
+  map: StyleSheet.absoluteFill,
 });
-
