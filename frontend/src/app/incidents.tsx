@@ -11,6 +11,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CreateIncidentForm } from '@/components/create-incident-form';
+import IncidentMapView from '@/components/IncidentMapView';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
@@ -248,49 +249,33 @@ function IncidentListView({
       {/* Lista vacía */}
       {!loading && !error && incidents.length === 0 && (
         <ThemedView type="backgroundElement" style={styles.emptyBox}>
-          <ThemedText type="default">No hay incidencias registradas en este momento.</ThemedText>
+          <ThemedText type="default">No hay incidencias registradas.</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary" style={{ marginTop: Spacing.one }}>
+            Crea una nueva incidencia con el botón superior.
+          </ThemedText>
         </ThemedView>
       )}
 
-      {/* Tarjetas de incidencias */}
+      {/* Lista de Tarjetas */}
       {!loading && !error && incidents.length > 0 && (
         <View style={styles.listContainer}>
-          {incidents.map((inc) => {
-            const statusColors = getStatusBadgeColor(inc.estado, isDark);
-            const priorityColors = getPriorityBadgeColor(inc.prioridad, isDark);
+          {incidents.map((incident) => {
+            const statusColors = getStatusBadgeColor(incident.estado, isDark);
+            const priorityColors = getPriorityBadgeColor(incident.prioridad, isDark);
 
             return (
               <Pressable
-                key={inc.id}
-                style={({ pressed }) => [
-                  styles.cardPressable,
-                  pressed && styles.pressed,
-                ]}
-                onPress={() => onSelectIncident(inc.id)}>
+                key={incident.id}
+                style={({ pressed }) => [styles.cardPressable, pressed && styles.pressed]}
+                onPress={() => onSelectIncident(incident.id)}>
                 <ThemedView type="backgroundElement" style={styles.card}>
                   <View style={styles.cardHeader}>
                     <View style={styles.idBadge}>
                       <ThemedText type="smallBold" style={styles.idBadgeText}>
-                        #{inc.id}
+                        #{incident.id}
                       </ThemedText>
                     </View>
-
                     <View style={styles.badgeRow}>
-                      <View
-                        style={[
-                          styles.badge,
-                          {
-                            backgroundColor: statusColors.bg,
-                            borderColor: statusColors.border,
-                          },
-                        ]}>
-                        <ThemedText
-                          type="smallBold"
-                          style={{ color: statusColors.text, fontSize: 12 }}>
-                          {inc.estado}
-                        </ThemedText>
-                      </View>
-
                       <View
                         style={[
                           styles.badge,
@@ -299,47 +284,56 @@ function IncidentListView({
                             borderColor: priorityColors.border,
                           },
                         ]}>
-                        <ThemedText
-                          type="smallBold"
-                          style={{ color: priorityColors.text, fontSize: 12 }}>
-                          {inc.prioridad}
+                        <ThemedText type="smallBold" style={{ color: priorityColors.text }}>
+                          {incident.prioridad}
+                        </ThemedText>
+                      </View>
+                      <View
+                        style={[
+                          styles.badge,
+                          {
+                            backgroundColor: statusColors.bg,
+                            borderColor: statusColors.border,
+                          },
+                        ]}>
+                        <ThemedText type="smallBold" style={{ color: statusColors.text }}>
+                          {incident.estado}
                         </ThemedText>
                       </View>
                     </View>
                   </View>
 
-                  <ThemedText type="default" style={styles.reporteTitle}>
-                    {inc.titulo || inc.reporteCentral}
+                  <ThemedText type="default" style={styles.reporteTitle} numberOfLines={2}>
+                    {incident.titulo || incident.reporteCentral}
                   </ThemedText>
 
-                  {inc.descripcion && inc.descripcion !== (inc.titulo || inc.reporteCentral) ? (
-                    <ThemedText type="small" themeColor="textSecondary">
-                      {inc.descripcion}
+                  {incident.descripcion && incident.titulo ? (
+                    <ThemedText type="small" themeColor="textSecondary" numberOfLines={2}>
+                      {incident.descripcion}
                     </ThemedText>
                   ) : null}
 
                   <View style={styles.cardFooter}>
-                    {inc.localizacion ? (
+                    {incident.localizacion ? (
                       <ThemedText type="small" themeColor="textSecondary">
-                        📍 {inc.localizacion}
+                        📍 {incident.localizacion}
                       </ThemedText>
                     ) : null}
-
-                    {inc.urbanAssetTipo ? (
+                    {incident.urbanAssetTipo ? (
                       <ThemedText type="small" themeColor="textSecondary">
-                        🏙️ Activo: {inc.urbanAssetTipo}
+                        🏛️ {incident.urbanAssetTipo}
                       </ThemedText>
                     ) : null}
-                    {inc.categoria ? (
+                    {incident.createdAt ? (
                       <ThemedText type="small" themeColor="textSecondary">
-                        🏷️ {inc.categoria}
+                        📅 {formatDate(incident.createdAt)}
                       </ThemedText>
                     ) : null}
                   </View>
 
                   <View style={styles.cardCta}>
-                    <ThemedText type="linkPrimary" style={styles.ctaText}>
-                      Ver detalle de atributos →
+                    <ThemedText type="smallBold" themeColor="textSecondary" style={styles.ctaText}>
+                      Ver detalle completo →
                     </ThemedText>
                   </View>
                 </ThemedView>
@@ -350,6 +344,50 @@ function IncidentListView({
       )}
     </View>
   );
+}
+
+// -------------------------------------------------------------
+// Función para inferir o parsear coordenadas de la localización
+// -------------------------------------------------------------
+function parseIncidentCoordinates(locationStr?: string | null): { latitude: number; longitude: number } | null {
+  if (!locationStr) return null;
+
+  // 1. Extraer coordenadas numéricas directas "lat, lng"
+  const coordMatches = locationStr.match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/);
+  if (coordMatches) {
+    const lat = parseFloat(coordMatches[1]);
+    const lng = parseFloat(coordMatches[2]);
+    if (!isNaN(lat) && !isNaN(lng)) {
+      return { latitude: lat, longitude: lng };
+    }
+  }
+
+  // 2. Diccionario de ubicaciones de Málaga (para los datos del schema y data.sql)
+  const locLower = locationStr.toLowerCase();
+  if (locLower.includes('larios')) return { latitude: 36.7202, longitude: -4.4214 };
+  if (locLower.includes('huelin') || locLower.includes('echeverr')) return { latitude: 36.7024, longitude: -4.4375 };
+  if (locLower.includes('pasteur') || locLower.includes('teatinos')) return { latitude: 36.7165, longitude: -4.4721 };
+  if (locLower.includes('plutarco')) return { latitude: 36.7185, longitude: -4.4690 };
+  if (locLower.includes('mesonero')) return { latitude: 36.7178, longitude: -4.4710 };
+  if (locLower.includes('picasso') || locLower.includes('malagueta')) return { latitude: 36.7207, longitude: -4.3985 };
+  if (locLower.includes('melilla')) return { latitude: 36.7170, longitude: -4.4080 };
+  if (locLower.includes('merced')) return { latitude: 36.7235, longitude: -4.4178 };
+  if (locLower.includes('hilera') || locLower.includes('cruz de humilladero')) return { latitude: 36.7180, longitude: -4.4295 };
+  if (locLower.includes('carlos haya')) return { latitude: 36.7240, longitude: -4.4450 };
+  if (locLower.includes('especer')) return { latitude: 36.7212, longitude: -4.4225 };
+  if (locLower.includes('parque') && locLower.includes('paseo')) return { latitude: 36.7188, longitude: -4.4165 };
+  if (locLower.includes('carreter')) return { latitude: 36.7242, longitude: -4.4230 };
+  if (locLower.includes('parque del oeste') || locLower.includes('realenga')) return { latitude: 36.6965, longitude: -4.4445 };
+  if (locLower.includes('antonio banderas')) return { latitude: 36.6980, longitude: -4.4360 };
+  if (locLower.includes('alameda')) return { latitude: 36.7175, longitude: -4.4228 };
+  if (locLower.includes('cervantes') || locLower.includes('puerta oscura')) return { latitude: 36.7215, longitude: -4.4140 };
+  if (locLower.includes('salitre') || locLower.includes('cuarteles') || locLower.includes('perchel')) {
+    if (locLower.includes('cuarteles')) return { latitude: 36.7135, longitude: -4.4270 };
+    return { latitude: 36.7125, longitude: -4.4285 };
+  }
+  if (locLower.includes('elcano') || locLower.includes('el palo')) return { latitude: 36.7200, longitude: -4.3640 };
+
+  return { latitude: 36.721274, longitude: -4.421399 };
 }
 
 // -------------------------------------------------------------
@@ -376,6 +414,7 @@ function IncidentDetailView({
 }: DetailViewProps) {
   const statusColors = incident ? getStatusBadgeColor(incident.estado, isDark) : null;
   const priorityColors = incident ? getPriorityBadgeColor(incident.prioridad, isDark) : null;
+  const coords = incident ? parseIncidentCoordinates(incident.localizacion) : null;
 
   return (
     <View style={styles.wrapper}>
@@ -517,14 +556,53 @@ function IncidentDetailView({
               🏙️ UBICACIÓN Y ACTIVO URBANO
             </ThemedText>
 
+            {/* Localización escrita */}
             <View style={styles.attributeRow}>
               <ThemedText type="smallBold" themeColor="textSecondary" style={styles.attributeLabel}>
-                Localización:
+                Localización escrita:
               </ThemedText>
               <ThemedText type="default" style={styles.attributeValue}>
                 {incident.localizacion ? `📍 ${incident.localizacion}` : 'No especificada'}
               </ThemedText>
             </View>
+
+            {coords && (
+              <View style={styles.attributeRow}>
+                <ThemedText type="smallBold" themeColor="textSecondary" style={styles.attributeLabel}>
+                  Coordenadas geográficas:
+                </ThemedText>
+                <ThemedText type="small" style={styles.attributeValue}>
+                  Latitud: {coords.latitude.toFixed(6)} | Longitud: {coords.longitude.toFixed(6)}
+                </ThemedText>
+              </View>
+            )}
+
+            {/* Mapa de la incidencia con marcador sobre OpenStreetMap (Leaflet / Nativo) */}
+            {coords && (
+              <View style={styles.detailMapWrapper}>
+                <View style={styles.detailMapContainer}>
+                  <IncidentMapView
+                    key={`detail-map-${incident.id}`}
+                    initialRegion={{
+                      latitude: coords.latitude,
+                      longitude: coords.longitude,
+                      latitudeDelta: 0.005,
+                      longitudeDelta: 0.005,
+                    }}
+                    region={{
+                      latitude: coords.latitude,
+                      longitude: coords.longitude,
+                      latitudeDelta: 0.005,
+                      longitudeDelta: 0.005,
+                    }}
+                    selectedCoordinate={coords}
+                  />
+                </View>
+                <ThemedText type="small" themeColor="textSecondary" style={styles.mapHintText}>
+                  📍 Ubicación de la incidencia marcada en el mapa
+                </ThemedText>
+              </View>
+            )}
 
             <View style={styles.attributeRow}>
               <ThemedText type="smallBold" themeColor="textSecondary" style={styles.attributeLabel}>
@@ -578,34 +656,31 @@ function IncidentDetailView({
 
             {incident.historial && incident.historial.length > 0 ? (
               <View style={styles.timelineList}>
-                {incident.historial.map((item, idx) => (
-                  <View key={item.id ?? idx} style={styles.timelineItem}>
+                {incident.historial.map((change, index) => (
+                  <View key={change.id || index} style={styles.timelineItem}>
                     <View style={styles.timelineMarker}>
                       <View style={styles.timelineDot} />
-                      {idx < (incident.historial?.length ?? 0) - 1 && <View style={styles.timelineLine} />}
+                      {index < (incident.historial?.length || 0) - 1 && <View style={styles.timelineLine} />}
                     </View>
                     <View style={styles.timelineContent}>
-                      <ThemedText type="smallBold">
-                        {item.transicion}
-                      </ThemedText>
-                      {item.motivo && (
-                        <ThemedText type="small" themeColor="textSecondary" style={{ marginTop: 2 }}>
-                          Motivo: {item.motivo}
+                      <ThemedText type="smallBold">{change.transicion}</ThemedText>
+                      {change.motivo ? (
+                        <ThemedText type="small" themeColor="textSecondary">
+                          Motivo: {change.motivo}
                         </ThemedText>
-                      )}
-                      <ThemedText type="code" style={{ marginTop: 4, color: '#888' }}>
-                        Por: {item.actorNombre || `Actor #${item.actorId}`} • {formatDate(item.instante)}
+                      ) : null}
+                      <ThemedText type="small" themeColor="textSecondary">
+                        Actor: {change.actorNombre || `Usuario #${change.actorId}`} •{' '}
+                        {formatDate(change.instante)}
                       </ThemedText>
                     </View>
                   </View>
                 ))}
               </View>
             ) : (
-              <View style={styles.emptyHistory}>
-                <ThemedText type="small" themeColor="textSecondary">
-                  Sin transiciones de estado registradas aún en el sistema.
-                </ThemedText>
-              </View>
+              <ThemedText type="small" themeColor="textSecondary" style={styles.emptyHistory}>
+                No hay transiciones de estado registradas todavía.
+              </ThemedText>
             )}
           </ThemedView>
         </View>
@@ -615,45 +690,42 @@ function IncidentDetailView({
 }
 
 // -------------------------------------------------------------
-// Helpers de estilos y formateo
+// Funciones de Ayuda de Estilos
 // -------------------------------------------------------------
-function formatDate(dateStr?: string): string {
+function formatDate(dateStr?: string | null): string {
   if (!dateStr) return 'Fecha no disponible';
   try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleString('es-ES', {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return dateStr;
+    return new Intl.DateTimeFormat('es-ES', {
+      day: '2-digit',
+      month: '2-digit',
       year: 'numeric',
-      month: 'short',
-      day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-    });
+    }).format(date);
   } catch {
     return dateStr;
   }
 }
 
-function getStatusBadgeColor(estado: string, isDark: boolean) {
-  const norm = (estado || '').toLowerCase();
-  if (norm.includes('abiert')) {
-    return { bg: isDark ? '#3b2505' : '#fef3c7', text: '#b45309', border: '#f59e0b' };
-  }
-  if (norm.includes('revis')) {
-    return { bg: isDark ? '#0c2847' : '#e0f2fe', text: '#0369a1', border: '#38bdf8' };
-  }
+function getStatusBadgeColor(status: string, isDark: boolean) {
+  const norm = status?.toLowerCase() || '';
   if (norm.includes('resuelt') || norm.includes('cerrad')) {
-    return { bg: isDark ? '#06301d' : '#dcfce7', text: '#15803d', border: '#22c55e' };
+    return { bg: isDark ? '#143022' : '#dcfce7', text: '#15803d', border: '#4ade80' };
   }
-  return { bg: isDark ? '#262626' : '#f3f4f6', text: '#4b5563', border: '#9ca3af' };
+  if (norm.includes('revis') || norm.includes('proceso') || norm.includes('curso')) {
+    return { bg: isDark ? '#1e293b' : '#e0f2fe', text: '#0284c7', border: '#38bdf8' };
+  }
+  return { bg: isDark ? '#3b1d1d' : '#fee2e2', text: '#dc2626', border: '#f87171' };
 }
 
-function getPriorityBadgeColor(prioridad: string, isDark: boolean) {
-  const norm = (prioridad || '').toLowerCase();
-  if (norm.includes('alta') || norm.includes('urgente')) {
-    return { bg: isDark ? '#3c1414' : '#fee2e2', text: '#b91c1c', border: '#f87171' };
+function getPriorityBadgeColor(priority: string, isDark: boolean) {
+  const norm = priority?.toLowerCase() || '';
+  if (norm.includes('alt') || norm.includes('urgente')) {
+    return { bg: isDark ? '#3b1d1d' : '#fee2e2', text: '#dc2626', border: '#f87171' };
   }
-  if (norm.includes('media')) {
+  if (norm.includes('med')) {
     return { bg: isDark ? '#35290a' : '#fef9c3', text: '#a16207', border: '#facc15' };
   }
   return { bg: isDark ? '#143022' : '#dcfce7', text: '#15803d', border: '#4ade80' };
@@ -853,6 +925,21 @@ const styles = StyleSheet.create({
   attributeValue: {
     fontSize: 16,
     lineHeight: 22,
+  },
+  detailMapWrapper: {
+    marginVertical: Spacing.two,
+    gap: Spacing.one,
+  },
+  detailMapContainer: {
+    height: 240,
+    borderRadius: Spacing.two,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: '#e2e8f0',
+  },
+  mapHintText: {
+    fontSize: 12,
+    fontStyle: 'italic',
   },
   historyNotice: {
     backgroundColor: 'rgba(60, 135, 247, 0.1)',
