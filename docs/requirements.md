@@ -43,12 +43,12 @@ Especificación de los requisitos funcionales, con su priorización **MoSCoW** y
 | RF17 | Análisis zonal | Se podrán consultar incidencias y contexto agregado para una zona y periodo. | Could | [010](adr/010-representacion-localizacion.md) | [#27](https://github.com/JANUEVE5/UrbanPulse/issues/27) |
 | RF18 | Auditoría | Se registrarán acciones administrativas, decisiones asistidas y cambios relevantes. | Must | [002](adr/002-postgresql-persistencia-principal.md), [008](adr/008-ciclo-vida-maquina-estados.md) | [#28](https://github.com/JANUEVE5/UrbanPulse/issues/28) |
 | RF19 | Informes | El sistema generará informes operativos y territoriales exportables. | Could | — | [#29](https://github.com/JANUEVE5/UrbanPulse/issues/29) |
-| RF20 | Asistencia inteligente | La plataforma podrá clasificar, priorizar, resumir y recomendar con indicación de confianza. | Won't (por ahora) | — | — |
+| RF20 | Asistencia inteligente | La plataforma podrá clasificar, priorizar, resumir y recomendar con indicación de confianza. | Won't (por ahora) | — | [#35](https://github.com/JANUEVE5/UrbanPulse/issues/35) |
 | RF21 | Barrio y distrito | El sistema identificará barrio y distrito a partir de la localización. | Should | [004](adr/004-degradacion-controlada-api-externa.md), [010](adr/010-representacion-localizacion.md) | [#30](https://github.com/JANUEVE5/UrbanPulse/issues/30) |
 | RF22 | Activo urbano | El sistema podrá asociar una incidencia a un activo urbano próximo. | Could | [004](adr/004-degradacion-controlada-api-externa.md) | [#31](https://github.com/JANUEVE5/UrbanPulse/issues/31) |
 | RF23 | Contexto externo | El sistema podrá obtener información contextual de fuentes externas. | Could | [004](adr/004-degradacion-controlada-api-externa.md) | [#32](https://github.com/JANUEVE5/UrbanPulse/issues/32) |
 | RF24 | Vista contextual | El operador podrá visualizar el contexto urbano asociado. | Could | [004](adr/004-degradacion-controlada-api-externa.md) | [#33](https://github.com/JANUEVE5/UrbanPulse/issues/33) |
-| RF25 | Correlación histórica | El sistema podrá correlacionar incidencias con variables urbanas históricas. | Won't (por ahora) | — | — |
+| RF25 | Correlación histórica | El sistema podrá correlacionar incidencias con variables urbanas históricas. | Won't (por ahora) | — | [#36](https://github.com/JANUEVE5/UrbanPulse/issues/36) |
 | RF26 | Degradación controlada | La falta de disponibilidad de una fuente externa no impedirá crear la incidencia. | Must | [004](adr/004-degradacion-controlada-api-externa.md) | [#34](https://github.com/JANUEVE5/UrbanPulse/issues/34) |
 
 ## Justificación de la priorización (MoSCoW)
@@ -82,7 +82,8 @@ Especificación de los requisitos funcionales, con su priorización **MoSCoW** y
 | RF25 | Won't | Requiere datos históricos suficientes y capacidades analíticas que exceden una primera versión. |
 | RF26 | Must | Asegura que la creación de incidencias no dependa de la disponibilidad de servicios externos. |
 
-Los requisitos *Won't have for now* (RF20, RF25) no tienen issue. Se abrirán si el equipo decide incorporarlos.
+Los requisitos *Won't have for now* (RF20, RF25) tienen su issue cerrado como **not planned**. Se reabrirán
+si el equipo decide incorporarlos.
 
 ## Sprint 1 — Alcance
 
