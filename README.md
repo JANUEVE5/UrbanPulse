@@ -1,140 +1,105 @@
 # UrbanPulse
 
-UrbanPulse es una plataforma para registrar y consultar incidencias urbanas. Este
-repositorio contiene una API REST en Spring Boot y una aplicación cliente en Expo (React Native) para web y móvil.
+**Plataforma cloud para la gestión inteligente de incidencias urbanas.**
+
+UrbanPulse transforma un aviso ciudadano aislado (un semáforo averiado, un árbol caído, un bache) en una
+unidad de trabajo **enriquecida con contexto urbano, trazable y analizable**. Integra lo que reporta la
+ciudadanía con datos de la ciudad de Málaga (activos urbanos, barrio y distrito, tráfico, meteorología…)
+para mejorar la clasificación, priorización, seguimiento, análisis y resolución de cada incidencia.
+
+La plataforma apoya al ciudadano, al operador municipal y al responsable de planificación **sin sustituir
+la decisión humana** en actuaciones sensibles.
+
+> Proyecto de la asignatura de Computación en la Nube — E.T.S. Ingeniería Informática, Universidad de Málaga.
+
+---
+
+## Características principales
+
+| Para… | UrbanPulse permite… |
+|---|---|
+| **Ciudadanía** | Registrar incidencias con título, descripción, categoría y ubicación en el mapa; adjuntar evidencias y consultar su estado. |
+| **Operadores municipales** | Validar o rechazar reportes, priorizar, asignar a departamentos o técnicos y buscar/filtrar incidencias. |
+| **Técnicos** | Disponer de una cola de trabajo, actualizar el progreso y documentar la resolución. |
+| **Administración** | Gestionar usuarios, roles, categorías y fuentes con auditoría completa. |
+| **Analistas** | Consultar indicadores, estadísticas territoriales y análisis por zona. |
+
+Principios del producto:
+
+- **La incidencia es el centro del dominio** y conserva un ciclo de vida auditable
+  (`REPORTED → VALIDATED → ASSIGNED → IN_PROGRESS → RESOLVED → CLOSED`, con `REJECTED` y `REOPENED`).
+- **Los datos externos enriquecen, nunca bloquean**: si una fuente de la ciudad no está disponible,
+  la incidencia se registra igualmente (degradación controlada).
+- **Solución más sencilla que cumpla los atributos de calidad medidos**: se parte de un monolito y solo se
+  añaden piezas cuando hay un problema observable, documentado con un [ADR](docs/adr/).
+
+Estado actual de las funcionalidades: ver [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
 ## Tecnologías
 
-- **Backend:** Java 17+, Spring Boot, Spring MVC, Spring Data JPA, PostgreSQL y Maven.
-- **Frontend:** Expo SDK 57, React Native, Expo Router y TypeScript.
+| Capa | Tecnología | Para qué se usa |
+|---|---|---|
+| Backend | **Java 17 + Spring Boot** (Spring MVC, Spring Data JPA) | API REST monolítica con la lógica de negocio de incidencias. |
+| Build backend | **Maven** (wrapper `mvnw`) | Dependencias explícitas, compilación, pruebas y empaquetado. |
+| Base de datos | **PostgreSQL 15** | Persistencia relacional y transaccional del dominio y del historial de estados. |
+| Frontend | **Expo + React Native + TypeScript** (Expo Router) | Aplicación móvil y web para ciudadanía y personal municipal. |
+| Mapas | **react-native-maps** / OpenStreetMap (web) y **expo-location** | Selección de ubicación y visualización de incidencias en el mapa. |
+| Contenedores | **Docker Compose** | Levantar los servicios de apoyo (PostgreSQL) de forma reproducible. |
+| CI | **GitHub Actions** | Compilar y probar backend y frontend en cada Pull Request. |
+
+Las decisiones que justifican cada elección están en [`docs/adr/`](docs/adr/).
 
 ---
 
-## Requisitos previos
-
-- **Java JDK 17** o superior.
-- **Node.js** (versión 18 o superior) y **npm**.
-- **PostgreSQL** (en local o mediante Docker).
-
----
-
-## 1. Configuración de la Base de Datos (PostgreSQL)
-
-El backend está configurado en `backend/src/main/resources/application.properties` con los siguientes valores por defecto:
-- **Host / Puerto:** `localhost:5432`
-- **Base de datos:** `urbanpulse`
-- **Usuario:** `postgres`
-- **Contraseña:** `1234`
-
-Asegúrate de que el servicio esté corriendo y crea la base de datos si no existe:
-```sql
-CREATE DATABASE urbanpulse;
-```
----
-
-## 2. Instrucciones para Windows
-
-### Backend (Spring Boot)
-
-Abre una terminal PowerShell o CMD:
-
-```powershell
-cd backend
-.\mvnw.cmd spring-boot:run
-```
-
-La API quedará disponible en `http://localhost:8080/api`.
-
-### Frontend (Expo)
-
-Abre una segunda terminal en la carpeta `frontend`:
-
-1. **Permitir ejecución de scripts en PowerShell (solo si aparece error de política de ejecución):**
-   ```powershell
-   Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-   ```
-
-2. **Instalar dependencias y arrancar:**
-   ```powershell
-   cd frontend
-   npm install
-   npx expo start
-   ```
-
-3. **Opciones de previsualización:**
-   - Pulsa **`w`** para abrir la versión Web en el navegador (`http://localhost:8081`).
-   - Pulsa **`a`** para abrir en emulador Android.
-   - Escanea el código QR con la app **Expo Go** en tu móvil (deben estar en la misma red Wi-Fi).
-
----
-
-## 3. Instrucciones para Linux
-
-### Backend (Spring Boot)
-
-Abre un terminal en Linux:
-
-1. Da permisos de ejecución al wrapper de Maven (solo la primera vez):
-   ```bash
-   cd backend
-   chmod +x mvnw
-   ```
-
-2. Arranca el servidor:
-   ```bash
-   ./mvnw spring-boot:run
-   ```
-
-La API quedará disponible en `http://localhost:8080/api`.
-
-*(Nota para NixOS: Puedes entrar a un entorno con JDK 17 mediante `nix shell nixpkgs#jdk17`)*.
-
-### Frontend (Expo)
-
-Abre una segunda terminal en la carpeta `frontend`:
-
-1. Instala dependencias y arranca el entorno:
-   ```bash
-   cd frontend
-   npm install
-   npx expo start
-   ```
-
-2. Para abrir directamente en el navegador:
-   ```bash
-   npm run web
-   ```
-
-*(Nota para NixOS: Puedes entrar a un entorno con Node.js mediante `nix shell nixpkgs#nodejs_22`)*.
-
----
-
-## 4. Conexión desde un móvil físico (Red local)
-
-Por defecto, la app web y el emulador conectan a `http://localhost:8080/api` o `10.0.2.2:8080/api`. Si pruebas desde un móvil físico escaneando el QR, debes indicarle la IP de tu ordenador en la red local:
-
-- **En Windows (PowerShell):**
-  ```powershell
-  $env:EXPO_PUBLIC_API_URL="http://<TU_IP_LOCAL>:8080/api"; npx expo start
-  ```
-
-- **En Linux (Bash):**
-  ```bash
-  EXPO_PUBLIC_API_URL=http://<TU_IP_LOCAL>:8080/api npx expo start
-  ```
-
----
-
-## 5. Probar el endpoint de creación de incidencias
-
-Con el backend iniciado, puedes comprobar la API con cURL:
+## Inicio rápido
 
 ```bash
-curl -i -X POST http://localhost:8080/api/incidents \
-  -H "Content-Type: application/json" \
-  -d '{"titulo":"Bache en la calzada","descripcion":"Hay un bache frente al número 12.","categoria":"Vía pública"}'
+git clone https://github.com/JANUEVE5/UrbanPulse.git
+cd UrbanPulse
+cp .env.example .env
+docker compose up -d                       # PostgreSQL
+cd backend && ./mvnw spring-boot:run       # API en http://localhost:8080/api
+cd ../frontend && npm install && npx expo start
 ```
 
-La respuesta esperada es `201 Created` con los datos de la incidencia.
+La guía completa (Windows y Linux, pruebas, móvil físico, problemas frecuentes) está en
+[docs/development.md](docs/development.md).
+
+---
+
+## Documentación
+
+| Documento | Contenido |
+|---|---|
+| [docs/requirements.md](docs/requirements.md) | Requisitos funcionales, priorización MoSCoW y alcance del sprint. |
+| [docs/architecture.md](docs/architecture.md) | Arquitectura del sistema (modelo C4), modelo de dominio y ciclo de vida. |
+| [docs/development.md](docs/development.md) | Cómo preparar el entorno, ejecutar, probar y trabajar con Git. |
+| [docs/deployment.md](docs/deployment.md) | Cómo se construye, configura y despliega la aplicación. |
+| [docs/adr/](docs/adr/) | Registro de decisiones de arquitectura (ADR). |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Flujo de trabajo, ramas, commits y Pull Requests. |
+| [AGENTS.md](AGENTS.md) | Instrucciones para agentes de IA que trabajan en el repositorio. |
+
+## Estructura del repositorio
+
+```text
+UrbanPulse/
+├── .github/        # CI (workflows), plantillas de issues y de Pull Request
+├── .agents/        # Skills compartidas para agentes de IA
+├── .claude/        # Configuración de Claude Code del proyecto
+├── backend/        # API REST Spring Boot (Maven)
+├── frontend/       # Aplicación Expo / React Native
+├── docs/           # Arquitectura, desarrollo, despliegue y ADRs
+├── compose.yaml    # Servicios de apoyo para desarrollo local
+└── .env.example    # Variables de entorno necesarias (sin secretos)
+```
+
+## Contribuir
+
+Todo cambio entra en `main` mediante una rama y un Pull Request revisado. Lee
+[CONTRIBUTING.md](CONTRIBUTING.md) antes de empezar.
+
+## Licencia
+
+Distribuido bajo licencia [MIT](LICENSE).
