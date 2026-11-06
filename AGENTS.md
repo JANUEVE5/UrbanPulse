@@ -1,7 +1,8 @@
 # AGENTS.md — Instrucciones para agentes de IA
 
 Fichero canónico de instrucciones para cualquier agente de IA (Claude Code, Copilot, Codex, Cursor…) que
-trabaje en este repositorio. `CLAUDE.md` lo importa. Hay instrucciones específicas en
+trabaje en este repositorio. `CLAUDE.md` (Claude Code) y `GEMINI.md` (Gemini CLI / Antigravity) lo importan,
+así que las normas se mantienen en un único sitio. Hay instrucciones específicas en
 [`backend/AGENTS.md`](backend/AGENTS.md) y [`frontend/AGENTS.md`](frontend/AGENTS.md).
 
 ## Contexto del proyecto
