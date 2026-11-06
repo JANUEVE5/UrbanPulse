@@ -14,7 +14,7 @@ import { CreateIncidentForm } from '@/components/create-incident-form';
 import IncidentMapView from '@/components/IncidentMapView';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { BottomTabInset, MaxContentWidth, Spacing, TopTabInset } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
   getIncidentById,
@@ -105,7 +105,7 @@ export default function IncidentsScreen() {
       paddingBottom: insets.bottom + BottomTabInset + Spacing.three,
     },
     web: {
-      paddingTop: Spacing.four,
+      paddingTop: TopTabInset + Spacing.three,
       paddingBottom: BottomTabInset + Spacing.six,
       paddingHorizontal: Spacing.three,
     },
@@ -418,19 +418,22 @@ function IncidentDetailView({
 
   return (
     <View style={styles.wrapper}>
-      {/* Botón Volver */}
-      <Pressable style={({ pressed }) => [styles.backButton, pressed && styles.pressed]} onPress={onBack}>
-        <ThemedText type="linkPrimary" style={styles.backButtonText}>
-          ← Volver al listado de incidencias
-        </ThemedText>
-      </Pressable>
-
-      {/* Título de la vista */}
-      <View style={styles.detailHeader}>
-        <ThemedText type="subtitle">Detalle de Incidencia #{id}</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
-          Consulta de atributos por identificador
-        </ThemedText>
+      {/* Cabecera con botón para volver al listado */}
+      <View style={styles.detailHeaderRow}>
+        <Pressable
+          onPress={onBack}
+          accessibilityRole="button"
+          accessibilityLabel="Volver al listado de incidencias"
+          hitSlop={8}
+          style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
+          <ThemedText style={styles.backButtonIcon}>←</ThemedText>
+        </Pressable>
+        <View style={styles.detailHeader}>
+          <ThemedText type="subtitle">Detalle de Incidencia #{id}</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            Consulta de atributos por identificador
+          </ThemedText>
+        </View>
       </View>
 
       {/* Estado de carga */}
@@ -888,19 +891,30 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  backButton: {
-    alignSelf: 'flex-start',
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.two,
-  },
-  backButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  detailHeader: {
-    gap: Spacing.half,
+  detailHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
     paddingHorizontal: Spacing.two,
     marginBottom: Spacing.two,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#3c87f7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backButtonIcon: {
+    color: '#ffffff',
+    fontSize: 22,
+    lineHeight: 26,
+    fontWeight: '700',
+  },
+  detailHeader: {
+    flex: 1,
+    gap: Spacing.half,
   },
   detailContainer: {
     gap: Spacing.four,
