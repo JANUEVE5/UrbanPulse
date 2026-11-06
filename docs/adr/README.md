@@ -54,6 +54,19 @@ Utilizar Redis mediante Cache-Aside.
 
 ## Índice
 
-| ADR | Título | Estado |
-|---|---|---|
-| — | *Pendiente de migrar los ADR-001 a ADR-004 y añadir los nuevos.* | — |
+| ADR | Título | Estado | Requisitos |
+|---|---|---|---|
+| [001](001-monolito-modular-spring-boot.md) | Adopción de arquitectura monolítica inicial con Spring Boot | Accepted | Pautas de diseño |
+| [002](002-postgresql-persistencia-principal.md) | Uso de PostgreSQL como motor de persistencia principal | Accepted | RF12, RF18 |
+| [003](003-object-storage-evidencias.md) | Almacenamiento de evidencias en Object Storage (S3/MinIO) | Accepted | RF05 |
+| [004](004-degradacion-controlada-api-externa.md) | Estrategia de degradación controlada ante la API del Ayuntamiento | Accepted | RF23, RF26 |
+| [005](005-cliente-multiplataforma-expo.md) | Cliente multiplataforma con Expo y React Native | Accepted | RF03, RF04, RF08 |
+| [006](006-esquema-bd-explicito-sql.md) | Esquema de base de datos explícito en SQL, sin DDL automático | Accepted | RF12, RF18 |
+| [007](007-configuracion-por-entorno-twelve-factor.md) | Configuración por variables de entorno y servicios de apoyo con Docker Compose | Accepted | Twelve-Factor |
+| [008](008-ciclo-vida-maquina-estados.md) | Ciclo de vida de la incidencia como máquina de estados con historial inmutable | Proposed | RF12, RF18 |
+| [009](009-autenticacion-autorizacion-jwt.md) | Autenticación con Spring Security y JWT, y autorización por roles | Proposed | RF01, RF02 |
+| [010](010-representacion-localizacion.md) | Representación de la localización como latitud y longitud numéricas | Proposed | RF04, RF08 |
+| [011](011-convenciones-api-rest.md) | Convenciones de la API REST: DTOs, paginación y formato de errores | Proposed | RF06, RF07 |
+| [012](012-despliegue-contenedores.md) | Despliegue del backend como imagen de contenedor versionada | Proposed | Twelve-Factor |
+
+Los ADR en estado `Proposed` están pendientes de que el equipo los revise y los acepte o rechace.
