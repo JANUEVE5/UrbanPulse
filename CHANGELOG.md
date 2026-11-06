@@ -9,6 +9,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ### Added
 
+- Botón con flecha para volver al listado desde el detalle de una incidencia.
+- ESLint configurado en el frontend (`eslint-config-expo`) para que `npx expo lint` funcione.
 - Documentación del repositorio: `docs/architecture.md` (modelo C4), `docs/development.md`,
   `docs/deployment.md`, índice y plantilla de ADRs en `docs/adr/`.
 - ADRs en `docs/adr/`: ADR-001 a ADR-004 migrados al formato común; ADR-005 a ADR-007 aceptados (cliente
@@ -23,10 +25,21 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ### Changed
 
+- `IncidentMapView` migrado a TypeScript; `npx tsc --noEmit` vuelve a pasar en el frontend.
+- En web, las pantallas de incidencias empiezan debajo de la barra de pestañas superior.
 - `README.md` reorganizado: visión del proyecto, características y tecnologías. La guía de instalación pasa
   a `docs/development.md`.
 - `CONTRIBUTING.md` ampliado con nombres de ramas, Conventional Commits, Pull Requests y Twelve-Factor.
 - `.gitignore` raíz completado (secretos, IDEs, logs) y `.idea/` deja de versionarse.
+
+### Removed
+
+- Pantalla `CreateIncidentScreen.jsx`, ruta `create-incident` y servicios `IncidentService.js` duplicados.
+- `frontend/LICENSE` de la plantilla de Expo (el proyecto usa la licencia MIT de la raíz).
+
+### Fixed
+
+- Error `_leaflet_pos` en consola al salir de una pantalla con mapa en web.
 
 ## [0.1.0] - Sprint 1
 
