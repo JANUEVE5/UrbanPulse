@@ -5,8 +5,8 @@ Este documento describe cómo se construye, configura y despliega UrbanPulse. El
 (*Build, release, run*).
 
 > **Estado actual:** ✅ hay integración continua (compilación y pruebas en cada PR). 📋 El empaquetado en
-> contenedores y el despliegue en la nube están **pendientes**: la plataforma de destino se decidirá en un
-> ADR y este documento se completará entonces. Las secciones marcadas con 📋 describen el proceso previsto.
+> contenedores y el despliegue en la nube están **pendientes**: la propuesta está en
+> [ADR-012](adr/012-despliegue-contenedores.md) y este documento se completará cuando se apruebe. Las secciones marcadas con 📋 describen el proceso previsto.
 
 ---
 

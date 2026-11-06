@@ -13,13 +13,14 @@ proyecto, cada cambio relevante actualiza este documento, un [ADR](adr/) y las p
 UrbanPulse es una **aplicación cliente-servidor**:
 
 - Un **monolito modular en Spring Boot** expone una API REST y contiene toda la lógica de negocio
-  ([ADR-001](adr/)).
-- **PostgreSQL** es el almacén principal y transaccional ([ADR-002](adr/)).
+  ([ADR-001](adr/001-monolito-modular-spring-boot.md)).
+- **PostgreSQL** es el almacén principal y transaccional ([ADR-002](adr/002-postgresql-persistencia-principal.md)).
 - Las evidencias (fotos y ficheros) se guardan en **Object Storage** y en la base de datos solo quedan sus
-  metadatos ([ADR-003](adr/)).
+  metadatos ([ADR-003](adr/003-object-storage-evidencias.md)).
 - Las **fuentes externas de la ciudad** enriquecen la incidencia, pero nunca bloquean su creación
-  ([ADR-004](adr/)).
-- Una **app Expo / React Native** (móvil y web) es el cliente de la ciudadanía y del personal municipal.
+  ([ADR-004](adr/004-degradacion-controlada-api-externa.md)).
+- Una **app Expo / React Native** (móvil y web) es el cliente de la ciudadanía y del personal municipal
+  ([ADR-005](adr/005-cliente-multiplataforma-expo.md)).
 
 Pautas de diseño que guían toda la arquitectura:
 
@@ -101,7 +102,7 @@ flowchart TB
 ## 4. C4 — Nivel 3: Componentes de la API REST
 
 El backend se organiza actualmente **por capas técnicas** (`controller → service → repository → entity`).
-El [ADR-001](adr/) plantea fronteras por **módulos de negocio** (Gestión, Contexto, Inteligencia). Esa
+El [ADR-001](adr/001-monolito-modular-spring-boot.md) plantea fronteras por **módulos de negocio** (Gestión, Contexto, Inteligencia). Esa
 evolución está pendiente de decidirse en un ADR.
 
 ```mermaid
@@ -237,6 +238,7 @@ stateDiagram-v2
 | `CLOSED` | Cierre definitivo tras verificación o plazo establecido. |
 
 Cada transición se registra en `StatusChange` (actor, instante y motivo) y nunca se sobrescribe (RF12, RF18).
+La forma de implementarlo se propone en [ADR-008](adr/008-ciclo-vida-maquina-estados.md).
 
 ---
 
@@ -244,14 +246,29 @@ Cada transición se registra en `StatusChange` (actor, instante y motivo) y nunc
 
 | Atributo | Escenario | Táctica |
 |---|---|---|
-| Disponibilidad del reporte | Una fuente externa cae y el ciudadano sigue pudiendo registrar la incidencia. | Degradación controlada y enriquecimiento asíncrono ([ADR-004](adr/)). |
-| Trazabilidad / auditoría | Toda transición queda registrada con actor, instante y motivo. | `StatusChange` de solo inserción, en BD ACID ([ADR-002](adr/)). |
-| Rendimiento | Las evidencias no penalizan las consultas ni las copias de seguridad. | Object Storage para binarios ([ADR-003](adr/)). |
-| Mantenibilidad | El equipo puede evolucionar el sistema sin romper otras partes. | Monolito modular con fronteras claras ([ADR-001](adr/)). |
-| Portabilidad | El mismo artefacto funciona en local, CI y nube. | Principios Twelve-Factor y configuración por variables de entorno. |
+| Disponibilidad del reporte | Una fuente externa cae y el ciudadano sigue pudiendo registrar la incidencia. | Degradación controlada y enriquecimiento asíncrono ([ADR-004](adr/004-degradacion-controlada-api-externa.md)). |
+| Trazabilidad / auditoría | Toda transición queda registrada con actor, instante y motivo. | `StatusChange` de solo inserción, en BD ACID ([ADR-002](adr/002-postgresql-persistencia-principal.md)). |
+| Rendimiento | Las evidencias no penalizan las consultas ni las copias de seguridad. | Object Storage para binarios ([ADR-003](adr/003-object-storage-evidencias.md)). |
+| Mantenibilidad | El equipo puede evolucionar el sistema sin romper otras partes. | Monolito modular con fronteras claras ([ADR-001](adr/001-monolito-modular-spring-boot.md)). |
+| Portabilidad | El mismo artefacto funciona en local, CI y nube. | Configuración por variables de entorno ([ADR-007](adr/007-configuracion-por-entorno-twelve-factor.md)) e imagen de contenedor ([ADR-012](adr/012-despliegue-contenedores.md)). |
 
 ---
 
 ## 8. Decisiones de arquitectura
 
 El registro completo está en [`docs/adr/`](adr/README.md).
+
+| ADR | Decisión | Estado |
+|---|---|---|
+| [001](adr/001-monolito-modular-spring-boot.md) | Monolito modular con Spring Boot | Accepted |
+| [002](adr/002-postgresql-persistencia-principal.md) | PostgreSQL como persistencia principal | Accepted |
+| [003](adr/003-object-storage-evidencias.md) | Evidencias en Object Storage | Accepted |
+| [004](adr/004-degradacion-controlada-api-externa.md) | Degradación controlada ante fuentes externas | Accepted |
+| [005](adr/005-cliente-multiplataforma-expo.md) | Cliente multiplataforma con Expo y React Native | Accepted |
+| [006](adr/006-esquema-bd-explicito-sql.md) | Esquema de base de datos explícito en SQL | Accepted |
+| [007](adr/007-configuracion-por-entorno-twelve-factor.md) | Configuración por variables de entorno y Docker Compose | Accepted |
+| [008](adr/008-ciclo-vida-maquina-estados.md) | Ciclo de vida como máquina de estados | Proposed |
+| [009](adr/009-autenticacion-autorizacion-jwt.md) | Autenticación con JWT y roles | Proposed |
+| [010](adr/010-representacion-localizacion.md) | Localización como latitud y longitud numéricas | Proposed |
+| [011](adr/011-convenciones-api-rest.md) | Convenciones de la API REST | Proposed |
+| [012](adr/012-despliegue-contenedores.md) | Despliegue como imagen de contenedor | Proposed |
