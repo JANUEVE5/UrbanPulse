@@ -1,0 +1,41 @@
+# =====================================================================
+# UrbanPulse — .gitignore raíz
+# Reglas comunes a todo el monorepo. Cada subproyecto (backend/, frontend/)
+# tiene además su propio .gitignore con reglas específicas del stack.
+# =====================================================================
+
+# --- Configuración y secretos (Twelve-Factor: la config va fuera del código) ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+
+# --- Sistema operativo ---
+.DS_Store
+Thumbs.db
+desktop.ini
+*~
+
+# --- IDEs / editores ---
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+
+# --- Logs (Twelve-Factor: los logs van a stdout, no a ficheros versionados) ---
+*.log
+logs/
+
+# --- Agentes de IA: configuración personal (la compartida sí se versiona) ---
+.claude/settings.local.json
+CLAUDE.local.md
+
+# --- Volúmenes locales de Docker ---
+.docker-data/
