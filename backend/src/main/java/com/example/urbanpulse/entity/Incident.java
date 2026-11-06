@@ -10,6 +10,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -39,6 +40,12 @@ public class Incident {
 
     @Column(name = "localizacion", length = 200)
     private String localizacion;
+
+    @Column(name = "latitud", precision = 9, scale = 6)
+    private BigDecimal latitud;
+
+    @Column(name = "longitud", precision = 9, scale = 6)
+    private BigDecimal longitud;
 
     @Column(name = "estado", nullable = false, length = 30)
     private String estado;
@@ -126,6 +133,22 @@ public class Incident {
 
     public void setLocalizacion(String localizacion) {
         this.localizacion = localizacion;
+    }
+
+    public BigDecimal getLatitud() {
+        return latitud;
+    }
+
+    public void setLatitud(BigDecimal latitud) {
+        this.latitud = latitud;
+    }
+
+    public BigDecimal getLongitud() {
+        return longitud;
+    }
+
+    public void setLongitud(BigDecimal longitud) {
+        this.longitud = longitud;
     }
 
     public String getEstado() {
