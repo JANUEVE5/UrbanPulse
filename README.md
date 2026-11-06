@@ -73,6 +73,7 @@ La guía completa (Windows y Linux, pruebas, móvil físico, problemas frecuente
 
 | Documento | Contenido |
 |---|---|
+| [docs/requirements.md](docs/requirements.md) | Requisitos funcionales, priorización MoSCoW y alcance del sprint. |
 | [docs/architecture.md](docs/architecture.md) | Arquitectura del sistema (modelo C4), modelo de dominio y ciclo de vida. |
 | [docs/development.md](docs/development.md) | Cómo preparar el entorno, ejecutar, probar y trabajar con Git. |
 | [docs/deployment.md](docs/deployment.md) | Cómo se construye, configura y despliega la aplicación. |

@@ -12,7 +12,7 @@ UrbanPulse es una plataforma cloud de gestión de incidencias urbanas (proyecto 
 - **Backend:** API REST en Java 17 + Spring Boot (monolito modular). Código en `/backend`.
 - **Frontend:** app Expo / React Native + TypeScript (móvil y web). Código en `/frontend`.
 - **Base de datos:** PostgreSQL 15 con esquema mantenido a mano (`backend/src/main/resources/schema.sql`).
-- **Documentación:** `docs/architecture.md` (C4), `docs/development.md`, `docs/deployment.md` y `docs/adr/`.
+- **Documentación:** `docs/requirements.md` (RF y MoSCoW), `docs/architecture.md` (C4), `docs/development.md`, `docs/deployment.md` y `docs/adr/`.
 
 Antes de diseñar algo, lee `docs/architecture.md` y los ADR de `docs/adr/`. No contradigas un ADR
 `Accepted` sin proponer uno nuevo que lo sustituya.
@@ -78,5 +78,8 @@ En `.agents/skills/` hay procedimientos reutilizables (Claude Code los ve a trav
 
 - Antes de generar código de backend, lee `schema.sql` y `data.sql`. No inventes columnas, relaciones ni
   estados que no existan. Si hacen falta, cambia el esquema de forma explícita y documentada.
-- Si un requisito es ambiguo, consulta la definición del proyecto (RF01–RF26 y la priorización MoSCoW) o
-  pregunta antes de implementar.
+- Los requisitos (RF01–RF26), su prioridad MoSCoW y el alcance del sprint están en `docs/requirements.md`.
+  Cada requisito tiene un issue de GitHub con criterios de aceptación: léelo con `gh issue view <n>` y
+  ciérralo desde el PR con `Closes #<n>`.
+- Si un requisito depende de un ADR en estado `Proposed`, pregunta antes de implementarlo.
+- Si un requisito es ambiguo, pregunta antes de implementar.

@@ -14,6 +14,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 - ADRs en `docs/adr/`: ADR-001 a ADR-004 migrados al formato común; ADR-005 a ADR-007 aceptados (cliente
   Expo, esquema SQL explícito, configuración por entorno) y ADR-008 a ADR-012 propuestos (ciclo de vida,
   autenticación, localización, convenciones de API y despliegue en contenedores).
+- `docs/requirements.md` con los RF, su priorización MoSCoW y el alcance del Sprint 1; un issue por requisito
+  (#11–#34), etiquetas MoSCoW y milestone `Sprint 1` en GitHub.
 - Plantillas de issues y de Pull Request en `.github/`.
 - `AGENTS.md`, skills compartidas en `.agents/` y configuración de Claude Code en `.claude/`.
 - `.env.example` y `compose.yaml` para levantar PostgreSQL en local.

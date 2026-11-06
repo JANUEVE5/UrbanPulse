@@ -115,7 +115,9 @@ Reglas:
 ## 5. Issues, etiquetas y milestones
 
 - Todo trabajo empieza con un **issue** creado con las plantillas de `.github/ISSUE_TEMPLATE/`.
-- Etiquetas: `bug`, `enhancement`, `documentation`, `refactor`, `security`, `dependencies`,
+- Cada requisito de [docs/requirements.md](docs/requirements.md) tiene su issue (`RF04 — Localización`).
+- Etiquetas MoSCoW: `moscow: must`, `moscow: should`, `moscow: could` y `moscow: won't`.
+- Otras etiquetas: `bug`, `enhancement`, `documentation`, `refactor`, `security`, `dependencies`,
   `question`, `good first issue`, `help wanted`, `priority: high`, `priority: medium`, `priority: low`,
   `backend` y `frontend`.
 - Cada issue se asocia al **milestone** del sprint (`Sprint 1`, `Sprint 2`, …, `Entrega final`).
