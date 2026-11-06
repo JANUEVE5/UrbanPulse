@@ -34,27 +34,27 @@ INSERT INTO "UrbanAsset" (tipo) VALUES
     ('Panel Informativo Digital');
 
 -- 3. Incidencias urbanas (20 incidencias localizadas en Málaga)
-INSERT INTO "Incident" (reporte_central, urban_asset_id, localizacion, latitud, longitud, estado, prioridad, id_creador, created_at) VALUES
-    ('Farola rota con cableado expuesto tras impacto de vehículo.', 1, 'Calle Marqués de Larios, 12, Centro', 36.720200, -4.421400, 'En revisión', 'Alta', 1, '2026-10-01 08:30:00'),
-    ('Contenedor de residuos volcado obstaculizando el paso en la acera.', 2, 'Calle Tomás Echeverría, 18, Huelin', 36.702400, -4.437500, 'Resuelta', 'Media', 2, '2026-10-02 09:15:00'),
-    ('Semáforo intermitente con fallo en la fase para peatones.', 5, 'Bulevar Louis Pasteur, 24, Teatinos', 36.716500, -4.472100, 'Abierta', 'Alta', 3, '2026-10-03 10:00:00'),
-    ('Pintadas vandálicas sobre los cristales de la parada de autobús.', 4, 'Paseo Marítimo Pablo Ruiz Picasso, 45, La Malagueta', 36.720700, -4.398500, 'Abierta', 'Baja', 4, '2026-10-04 11:20:00'),
-    ('Banco de madera con tablón fracturado y riesgo de astillas.', 6, 'Plaza de la Merced, Centro Histórico', 36.723500, -4.417800, 'En revisión', 'Media', 5, '2026-10-05 12:45:00'),
-    ('Bache profundo en el asfalto justo antes del paso peatonal.', 9, 'Calle Hilera, 8, Cruz de Humilladero', 36.718000, -4.429500, 'Resuelta', 'Alta', 6, '2026-10-06 14:10:00'),
-    ('Papelera metálica desprendida de su fijación al suelo.', 7, 'Calle Especería, 5, Centro', 36.721200, -4.422500, 'Abierta', 'Baja', 7, '2026-10-07 15:30:00'),
-    ('Pérdida constante de agua por rotura del grifo de la fuente.', 8, 'Paseo del Parque, frente a Ayuntamiento', 36.718800, -4.416500, 'En revisión', 'Media', 8, '2026-10-08 16:05:00'),
-    ('Bolardo derribado ocupando la calzada del carril bici.', 10, 'Avenida Plutarco, 32, Teatinos', 36.718500, -4.469000, 'Resuelta', 'Media', 9, '2026-10-09 17:40:00'),
-    ('Raíces sobresalientes del alcorque levantando el pavimento.', 11, 'Calle Carretería, 64, Centro', 36.724200, -4.423000, 'Abierta', 'Baja', 10, '2026-10-10 18:25:00'),
-    ('Columpio infantil con cadena rota en zona de juegos infantiles.', 12, 'Parque del Oeste, Calle Realenga de San Luis, Carretera de Cádiz', 36.696500, -4.444500, 'Abierta', 'Alta', 1, '2026-10-11 09:00:00'),
-    ('Anclaje de bicicleta averiado que no permite desacoplar unidades.', 13, 'Paseo Marítimo Antonio Banderas, frente a Diputación, Huelin', 36.698000, -4.436000, 'En revisión', 'Media', 2, '2026-10-12 10:15:00'),
-    ('Barandilla marítima desprendida y oxidada con peligro de caída.', 14, 'Paseo Marítimo Ciudad de Melilla, La Malagueta', 36.717000, -4.408000, 'Abierta', 'Alta', 3, '2026-10-13 11:50:00'),
-    ('Pantalla informativa apagada y cristal exterior agrietado.', 15, 'Alameda Principal, 14, Centro', 36.717500, -4.422800, 'Resuelta', 'Baja', 4, '2026-10-14 13:10:00'),
-    ('Contenedor de vidrio desbordado y residuos amontonados fuera.', 3, 'Avenida Cervantes, frente a Jardines de Puerta Oscura', 36.721500, -4.414000, 'En revisión', 'Media', 5, '2026-10-15 14:35:00'),
-    ('Luminaria de farola fundida dejando la calle a oscuras.', 1, 'Calle Mesonero Romanos, 5, Teatinos', 36.717800, -4.471000, 'Abierta', 'Media', 6, '2026-10-16 19:20:00'),
-    ('Pintura vial del paso de cebra desgastada y muy deslizante.', 9, 'Calle Salitre, 28, Perchel Sur', 36.712500, -4.428500, 'Resuelta', 'Media', 7, '2026-10-17 08:45:00'),
-    ('Semáforo peatonal con la bombilla verde averiada.', 5, 'Calle Cuarteles, 15, Perchel Sur', 36.713500, -4.427000, 'En revisión', 'Alta', 8, '2026-10-18 11:30:00'),
-    ('Hundimiento de calzada junto a tapa de registro con ruidos al paso.', 9, 'Calle Juan Sebastián Elcano, 82, El Palo', 36.720000, -4.364000, 'Abierta', 'Alta', 9, '2026-10-19 12:15:00'),
-    ('Restos de poda acumulados bloqueando el acceso a la marquesina.', 4, 'Avenida Carlos Haya, 75, Cruz de Humilladero', 36.724000, -4.445000, 'Resuelta', 'Baja', 10, '2026-10-20 16:00:00');
+INSERT INTO "Incident" (reporte_central, urban_asset_id, localizacion, estado, prioridad, id_creador, created_at) VALUES
+    ('Farola rota con cableado expuesto tras impacto de vehículo.', 1, 'Calle Marqués de Larios, 12, Centro', 'En revisión', 'Alta', 1, '2026-10-01 08:30:00'),
+    ('Contenedor de residuos volcado obstaculizando el paso en la acera.', 2, 'Calle Tomás Echeverría, 18, Huelin', 'Resuelta', 'Media', 2, '2026-10-02 09:15:00'),
+    ('Semáforo intermitente con fallo en la fase para peatones.', 5, 'Bulevar Louis Pasteur, 24, Teatinos', 'Abierta', 'Alta', 3, '2026-10-03 10:00:00'),
+    ('Pintadas vandálicas sobre los cristales de la parada de autobús.', 4, 'Paseo Marítimo Pablo Ruiz Picasso, 45, La Malagueta', 'Abierta', 'Baja', 4, '2026-10-04 11:20:00'),
+    ('Banco de madera con tablón fracturado y riesgo de astillas.', 6, 'Plaza de la Merced, Centro Histórico', 'En revisión', 'Media', 5, '2026-10-05 12:45:00'),
+    ('Bache profundo en el asfalto justo antes del paso peatonal.', 9, 'Calle Hilera, 8, Cruz de Humilladero', 'Resuelta', 'Alta', 6, '2026-10-06 14:10:00'),
+    ('Papelera metálica desprendida de su fijación al suelo.', 7, 'Calle Especería, 5, Centro', 'Abierta', 'Baja', 7, '2026-10-07 15:30:00'),
+    ('Pérdida constante de agua por rotura del grifo de la fuente.', 8, 'Paseo del Parque, frente a Ayuntamiento', 'En revisión', 'Media', 8, '2026-10-08 16:05:00'),
+    ('Bolardo derribado ocupando la calzada del carril bici.', 10, 'Avenida Plutarco, 32, Teatinos', 'Resuelta', 'Media', 9, '2026-10-09 17:40:00'),
+    ('Raíces sobresalientes del alcorque levantando el pavimento.', 11, 'Calle Carretería, 64, Centro', 'Abierta', 'Baja', 10, '2026-10-10 18:25:00'),
+    ('Columpio infantil con cadena rota en zona de juegos infantiles.', 12, 'Parque del Oeste, Calle Realenga de San Luis, Carretera de Cádiz', 'Abierta', 'Alta', 1, '2026-10-11 09:00:00'),
+    ('Anclaje de bicicleta averiado que no permite desacoplar unidades.', 13, 'Paseo Marítimo Antonio Banderas, frente a Diputación, Huelin', 'En revisión', 'Media', 2, '2026-10-12 10:15:00'),
+    ('Barandilla marítima desprendida y oxidada con peligro de caída.', 14, 'Paseo Marítimo Ciudad de Melilla, La Malagueta', 'Abierta', 'Alta', 3, '2026-10-13 11:50:00'),
+    ('Pantalla informativa apagada y cristal exterior agrietado.', 15, 'Alameda Principal, 14, Centro', 'Resuelta', 'Baja', 4, '2026-10-14 13:10:00'),
+    ('Contenedor de vidrio desbordado y residuos amontonados fuera.', 3, 'Avenida Cervantes, frente a Jardines de Puerta Oscura', 'En revisión', 'Media', 5, '2026-10-15 14:35:00'),
+    ('Luminaria de farola fundida dejando la calle a oscuras.', 1, 'Calle Mesonero Romanos, 5, Teatinos', 'Abierta', 'Media', 6, '2026-10-16 19:20:00'),
+    ('Pintura vial del paso de cebra desgastada y muy deslizante.', 9, 'Calle Salitre, 28, Perchel Sur', 'Resuelta', 'Media', 7, '2026-10-17 08:45:00'),
+    ('Semáforo peatonal con la bombilla verde averiada.', 5, 'Calle Cuarteles, 15, Perchel Sur', 'En revisión', 'Alta', 8, '2026-10-18 11:30:00'),
+    ('Hundimiento de calzada junto a tapa de registro con ruidos al paso.', 9, 'Calle Juan Sebastián Elcano, 82, El Palo', 'Abierta', 'Alta', 9, '2026-10-19 12:15:00'),
+    ('Restos de poda acumulados bloqueando el acceso a la marquesina.', 4, 'Avenida Carlos Haya, 75, Cruz de Humilladero', 'Resuelta', 'Baja', 10, '2026-10-20 16:00:00');
 
 -- 4. Archivos adjuntos (Attachments)
 INSERT INTO "Attachment" (archivo_adjunto, incident_id) VALUES

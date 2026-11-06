@@ -98,7 +98,7 @@ curl http://localhost:8080/api/incidents
 
 curl -i -X POST http://localhost:8080/api/incidents \
   -H "Content-Type: application/json" \
-  -d '{"titulo":"Bache en la calzada","descripcion":"Hay un bache frente al número 12.","categoria":"Vía pública","latitud":36.721274,"longitud":-4.421399}'
+  -d '{"titulo":"Bache en la calzada","descripcion":"Hay un bache frente al número 12.","categoria":"Vía pública"}'
 ```
 
 La respuesta esperada del `POST` es `201 Created` con los datos de la incidencia.
