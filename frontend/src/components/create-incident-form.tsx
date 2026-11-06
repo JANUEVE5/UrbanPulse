@@ -118,11 +118,6 @@ export function CreateIncidentForm({ onCancel, onCreated }: CreateIncidentFormPr
       return;
     }
 
-    if (!selectedCoordinate) {
-      setError('Selecciona en el mapa la ubicación de la incidencia.');
-      return;
-    }
-
     setSaving(true);
     setError(null);
     try {
@@ -130,8 +125,6 @@ export function CreateIncidentForm({ onCancel, onCreated }: CreateIncidentFormPr
         titulo: cleanTitle,
         descripcion: cleanDescription,
         ...(categoria.trim() ? { categoria: categoria.trim() } : {}),
-        latitud: selectedCoordinate.latitude,
-        longitud: selectedCoordinate.longitude,
       });
       await onCreated();
     } catch (submitError: unknown) {

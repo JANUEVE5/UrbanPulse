@@ -2,7 +2,7 @@
 
 ## Estado
 
-Accepted
+Proposed
 
 ## Contexto
 
@@ -21,8 +21,7 @@ pide solo guardar latitud y longitud.
 ## Decisión
 
 Guardar la posición en dos columnas `latitud` y `longitud` de tipo `NUMERIC(9,6)`, validadas en la API
-(rango ±90 y ±180) y obligatorias al registrar una incidencia. La dirección escrita sigue en `localizacion`
-(opcional) y la precisión se añadirá en un sprint posterior. Se adoptará PostGIS en un ADR posterior
+(rango ±90 y ±180), junto con `precision_m` y `direccion` opcionales. Se adoptará PostGIS en un ADR posterior
 cuando se implemente el primer requisito que necesite consultas espaciales (RF16, RF17, RF21 o RF22).
 
 ## Consecuencias

@@ -144,7 +144,7 @@ flowchart LR
 |---|---|---|---|
 | `GET` | `/api/incidents` | Listado de incidencias. | RF06 / RF07 (mínimo) |
 | `GET` | `/api/incidents/{id}` | Detalle con su historial de cambios de estado. | RF06 |
-| `POST` | `/api/incidents` | Registro de una incidencia (título, descripción, categoría opcional, latitud y longitud). | RF03, RF04 |
+| `POST` | `/api/incidents` | Registro de una incidencia (título, descripción, categoría). | RF03 |
 | `GET` | `/api/users` | Listado de usuarios. | RF01 (provisional) |
 
 Cuando la API se estabilice, el contrato se publicará en OpenAPI en `docs/api/openapi.yml`.
@@ -162,8 +162,6 @@ classDiagram
         descripcion
         categoria
         localizacion
-        latitud
-        longitud
         estado
         prioridad
         createdAt
@@ -271,6 +269,6 @@ El registro completo está en [`docs/adr/`](adr/README.md).
 | [007](adr/007-configuracion-por-entorno-twelve-factor.md) | Configuración por variables de entorno y Docker Compose | Accepted |
 | [008](adr/008-ciclo-vida-maquina-estados.md) | Ciclo de vida como máquina de estados | Proposed |
 | [009](adr/009-autenticacion-autorizacion-jwt.md) | Autenticación con JWT y roles | Proposed |
-| [010](adr/010-representacion-localizacion.md) | Localización como latitud y longitud numéricas | Accepted |
+| [010](adr/010-representacion-localizacion.md) | Localización como latitud y longitud numéricas | Proposed |
 | [011](adr/011-convenciones-api-rest.md) | Convenciones de la API REST | Proposed |
 | [012](adr/012-despliegue-contenedores.md) | Despliegue como imagen de contenedor | Proposed |
