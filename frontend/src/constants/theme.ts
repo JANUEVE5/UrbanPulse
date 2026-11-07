@@ -1,6 +1,8 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * Tokens visuales de UrbanPulse (modo claro y oscuro).
+ * - primary: azul mar, color de marca y de los elementos activos.
+ * - signal: naranja señal, reservado para las incidencias en el mapa.
+ * - border: líneas y separadores.
  */
 
 import '@/global.css';
@@ -9,18 +11,28 @@ import { Platform } from 'react-native';
 
 export const Colors = {
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
+    text: '#1B2733',
+    background: '#FFFFFF',
+    backgroundElement: '#F3F6F8',
+    backgroundSelected: '#E2EDF4',
+    textSecondary: '#5B6875',
+    border: '#DCE3E8',
+    primary: '#0E5A8A',
+    onPrimary: '#FFFFFF',
+    signal: '#E8590C',
+    scrim: 'rgba(27, 39, 51, 0.45)',
   },
   dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
+    text: '#E8EEF2',
+    background: '#0F1A22',
+    backgroundElement: '#172632',
+    backgroundSelected: '#1F3A4D',
+    textSecondary: '#9AA9B5',
+    border: '#26394A',
+    primary: '#5BB0E6',
+    onPrimary: '#0F1A22',
+    signal: '#FF7A33',
+    scrim: 'rgba(0, 0, 0, 0.55)',
   },
 } as const;
 
@@ -61,7 +73,10 @@ export const Spacing = {
   six: 64,
 } as const;
 
-export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
-/** En web la barra de pestañas va arriba, en posición absoluta (~78 px): el contenido debe empezar debajo. */
-export const TopTabInset = Platform.select({ web: 80 }) ?? 0;
 export const MaxContentWidth = 800;
+
+/** A partir de este ancho la barra lateral se muestra fija; por debajo, se despliega con el botón de menú. */
+export const WideLayoutMinWidth = 900;
+export const SidebarWidth = 248;
+/** Espacio que deja libre el botón flotante de menú (arriba a la izquierda) en pantallas estrechas. */
+export const FloatingMenuInset = 64;
