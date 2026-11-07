@@ -107,6 +107,8 @@ class IncidentControllerTest {
         dto.setDescripcion("Hay un bache frente al número 12.");
         dto.setCategoria("Vía pública");
         dto.setReporteCentral("Hay un bache frente al número 12.");
+        dto.setLatitud(new java.math.BigDecimal("36.721274"));
+        dto.setLongitud(new java.math.BigDecimal("-4.421399"));
 
         when(incidentService.createIncident(org.mockito.ArgumentMatchers.any(CreateIncidentRequest.class)))
                 .thenReturn(dto);
@@ -117,14 +119,18 @@ class IncidentControllerTest {
                                 {
                                   "titulo": "Bache en la calzada",
                                   "descripcion": "Hay un bache frente al número 12.",
-                                  "categoria": "Vía pública"
+                                  "categoria": "Vía pública",
+                                  "latitud": 36.721274,
+                                  "longitud": -4.421399
                                 }
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(2))
                 .andExpect(jsonPath("$.titulo").value("Bache en la calzada"))
                 .andExpect(jsonPath("$.descripcion").value("Hay un bache frente al número 12."))
-                .andExpect(jsonPath("$.categoria").value("Vía pública"));
+                .andExpect(jsonPath("$.categoria").value("Vía pública"))
+                .andExpect(jsonPath("$.latitud").value(36.721274))
+                .andExpect(jsonPath("$.longitud").value(-4.421399));
     }
 
     @Test
@@ -135,7 +141,51 @@ class IncidentControllerTest {
                         .content("""
                                 {
                                   "titulo": " ",
+                                  "descripcion": "Hay un bache.",
+                                  "latitud": 36.72,
+                                  "longitud": -4.42
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("POST /api/incidents debe rechazar una incidencia sin coordenadas (RF04)")
+    void testCreateIncidentWithoutCoordinates() throws Exception {
+        mockMvc.perform(post("/api/incidents")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "titulo": "Bache",
                                   "descripcion": "Hay un bache."
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("POST /api/incidents debe rechazar coordenadas fuera de rango (RF04)")
+    void testCreateIncidentWithOutOfRangeCoordinates() throws Exception {
+        mockMvc.perform(post("/api/incidents")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "titulo": "Bache",
+                                  "descripcion": "Hay un bache.",
+                                  "latitud": 120.0,
+                                  "longitud": -4.42
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(post("/api/incidents")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "titulo": "Bache",
+                                  "descripcion": "Hay un bache.",
+                                  "latitud": 36.72,
+                                  "longitud": -181.0
                                 }
                                 """))
                 .andExpect(status().isBadRequest());

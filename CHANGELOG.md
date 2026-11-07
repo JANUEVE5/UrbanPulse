@@ -9,6 +9,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ### Added
 
+- RF04 (versión mínima): las incidencias guardan latitud y longitud (`NUMERIC(9,6)`), obligatorias y validadas
+  al registrar; el formulario las envía desde el mapa y el detalle muestra la ubicación guardada (#14).
 - Botón con flecha para volver al listado desde el detalle de una incidencia.
 - ESLint configurado en el frontend (`eslint-config-expo`) para que `npx expo lint` funcione.
 - Documentación del repositorio: `docs/architecture.md` (modelo C4), `docs/development.md`,
@@ -25,6 +27,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ### Changed
 
+- ADR-010 pasa a `Accepted`.
+- El detalle ya no deduce la posición a partir del nombre de la calle: usa las coordenadas de la API.
 - `IncidentMapView` migrado a TypeScript; `npx tsc --noEmit` vuelve a pasar en el frontend.
 - En web, las pantallas de incidencias empiezan debajo de la barra de pestañas superior.
 - `README.md` reorganizado: visión del proyecto, características y tecnologías. La guía de instalación pasa

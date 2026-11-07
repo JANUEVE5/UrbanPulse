@@ -3,6 +3,7 @@ package com.example.urbanpulse.dto;
 import com.example.urbanpulse.entity.Incident;
 import com.example.urbanpulse.entity.StatusChange;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,6 +19,8 @@ public class IncidentDTO {
     private Integer urbanAssetId;
     private String urbanAssetTipo;
     private String localizacion;
+    private BigDecimal latitud;
+    private BigDecimal longitud;
     private String estado;
     private String prioridad;
     private Integer idCreador;
@@ -51,6 +54,8 @@ public class IncidentDTO {
         }
 
         dto.setLocalizacion(incident.getLocalizacion());
+        dto.setLatitud(incident.getLatitud());
+        dto.setLongitud(incident.getLongitud());
         dto.setEstado(incident.getEstado());
         dto.setPrioridad(incident.getPrioridad());
 
@@ -135,6 +140,22 @@ public class IncidentDTO {
 
     public void setLocalizacion(String localizacion) {
         this.localizacion = localizacion;
+    }
+
+    public BigDecimal getLatitud() {
+        return latitud;
+    }
+
+    public void setLatitud(BigDecimal latitud) {
+        this.latitud = latitud;
+    }
+
+    public BigDecimal getLongitud() {
+        return longitud;
+    }
+
+    public void setLongitud(BigDecimal longitud) {
+        this.longitud = longitud;
     }
 
     public String getEstado() {

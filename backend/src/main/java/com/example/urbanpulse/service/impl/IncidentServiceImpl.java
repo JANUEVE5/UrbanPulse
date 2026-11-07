@@ -73,6 +73,8 @@ public class IncidentServiceImpl implements IncidentService {
         incident.setDescripcion(description);
         incident.setCategoria(category);
         incident.setReporteCentral(description);
+        incident.setLatitud(request.getLatitud());
+        incident.setLongitud(request.getLongitud());
         incident.setEstado("Abierta");
         incident.setPrioridad("Media");
         incident.setCreador(creator);
