@@ -9,6 +9,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ### Added
 
+- Barra lateral de navegación: fija a la izquierda en pantallas anchas y desplegable con un botón de menú
+  arriba a la izquierda en móvil. Incluye las secciones futuras Perfil, Ajustes y Administración (desactivadas).
+- Paleta propia de UrbanPulse (azul mar y naranja señal) en modo claro y oscuro.
 - RF04 (versión mínima): las incidencias guardan latitud y longitud (`NUMERIC(9,6)`), obligatorias y validadas
   al registrar; el formulario las envía desde el mapa y el detalle muestra la ubicación guardada (#14).
 - Botón con flecha para volver al listado desde el detalle de una incidencia.
@@ -38,6 +41,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ### Removed
 
+- Plantilla de Expo: pantallas Home y Explore, pestañas, componentes e imágenes de ejemplo, script
+  `reset-project` y las dependencias que solo usaba la plantilla. La app se llama UrbanPulse en `app.json`.
 - Pantalla `CreateIncidentScreen.jsx`, ruta `create-incident` y servicios `IncidentService.js` duplicados.
 - `frontend/LICENSE` de la plantilla de Expo (el proyecto usa la licencia MIT de la raíz).
 
