@@ -347,47 +347,11 @@ function IncidentListView({
 }
 
 // -------------------------------------------------------------
-// Función para inferir o parsear coordenadas de la localización
+// Coordenadas de la incidencia (RF04): las devuelve la API como latitud/longitud
 // -------------------------------------------------------------
-function parseIncidentCoordinates(locationStr?: string | null): { latitude: number; longitude: number } | null {
-  if (!locationStr) return null;
-
-  // 1. Extraer coordenadas numéricas directas "lat, lng"
-  const coordMatches = locationStr.match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/);
-  if (coordMatches) {
-    const lat = parseFloat(coordMatches[1]);
-    const lng = parseFloat(coordMatches[2]);
-    if (!isNaN(lat) && !isNaN(lng)) {
-      return { latitude: lat, longitude: lng };
-    }
-  }
-
-  // 2. Diccionario de ubicaciones de Málaga (para los datos del schema y data.sql)
-  const locLower = locationStr.toLowerCase();
-  if (locLower.includes('larios')) return { latitude: 36.7202, longitude: -4.4214 };
-  if (locLower.includes('huelin') || locLower.includes('echeverr')) return { latitude: 36.7024, longitude: -4.4375 };
-  if (locLower.includes('pasteur') || locLower.includes('teatinos')) return { latitude: 36.7165, longitude: -4.4721 };
-  if (locLower.includes('plutarco')) return { latitude: 36.7185, longitude: -4.4690 };
-  if (locLower.includes('mesonero')) return { latitude: 36.7178, longitude: -4.4710 };
-  if (locLower.includes('picasso') || locLower.includes('malagueta')) return { latitude: 36.7207, longitude: -4.3985 };
-  if (locLower.includes('melilla')) return { latitude: 36.7170, longitude: -4.4080 };
-  if (locLower.includes('merced')) return { latitude: 36.7235, longitude: -4.4178 };
-  if (locLower.includes('hilera') || locLower.includes('cruz de humilladero')) return { latitude: 36.7180, longitude: -4.4295 };
-  if (locLower.includes('carlos haya')) return { latitude: 36.7240, longitude: -4.4450 };
-  if (locLower.includes('especer')) return { latitude: 36.7212, longitude: -4.4225 };
-  if (locLower.includes('parque') && locLower.includes('paseo')) return { latitude: 36.7188, longitude: -4.4165 };
-  if (locLower.includes('carreter')) return { latitude: 36.7242, longitude: -4.4230 };
-  if (locLower.includes('parque del oeste') || locLower.includes('realenga')) return { latitude: 36.6965, longitude: -4.4445 };
-  if (locLower.includes('antonio banderas')) return { latitude: 36.6980, longitude: -4.4360 };
-  if (locLower.includes('alameda')) return { latitude: 36.7175, longitude: -4.4228 };
-  if (locLower.includes('cervantes') || locLower.includes('puerta oscura')) return { latitude: 36.7215, longitude: -4.4140 };
-  if (locLower.includes('salitre') || locLower.includes('cuarteles') || locLower.includes('perchel')) {
-    if (locLower.includes('cuarteles')) return { latitude: 36.7135, longitude: -4.4270 };
-    return { latitude: 36.7125, longitude: -4.4285 };
-  }
-  if (locLower.includes('elcano') || locLower.includes('el palo')) return { latitude: 36.7200, longitude: -4.3640 };
-
-  return { latitude: 36.721274, longitude: -4.421399 };
+function getIncidentCoordinates(incident: Incident): { latitude: number; longitude: number } | null {
+  if (incident.latitud == null || incident.longitud == null) return null;
+  return { latitude: Number(incident.latitud), longitude: Number(incident.longitud) };
 }
 
 // -------------------------------------------------------------
@@ -414,7 +378,7 @@ function IncidentDetailView({
 }: DetailViewProps) {
   const statusColors = incident ? getStatusBadgeColor(incident.estado, isDark) : null;
   const priorityColors = incident ? getPriorityBadgeColor(incident.prioridad, isDark) : null;
-  const coords = incident ? parseIncidentCoordinates(incident.localizacion) : null;
+  const coords = incident ? getIncidentCoordinates(incident) : null;
 
   return (
     <View style={styles.wrapper}>
@@ -559,15 +523,23 @@ function IncidentDetailView({
               🏙️ UBICACIÓN Y ACTIVO URBANO
             </ThemedText>
 
-            {/* Localización escrita */}
-            <View style={styles.attributeRow}>
-              <ThemedText type="smallBold" themeColor="textSecondary" style={styles.attributeLabel}>
-                Localización escrita:
+            {/* Dirección escrita (opcional) */}
+            {incident.localizacion ? (
+              <View style={styles.attributeRow}>
+                <ThemedText type="smallBold" themeColor="textSecondary" style={styles.attributeLabel}>
+                  Dirección:
+                </ThemedText>
+                <ThemedText type="default" style={styles.attributeValue}>
+                  📍 {incident.localizacion}
+                </ThemedText>
+              </View>
+            ) : null}
+
+            {!coords && (
+              <ThemedText type="small" themeColor="textSecondary">
+                Esta incidencia no tiene ubicación registrada.
               </ThemedText>
-              <ThemedText type="default" style={styles.attributeValue}>
-                {incident.localizacion ? `📍 ${incident.localizacion}` : 'No especificada'}
-              </ThemedText>
-            </View>
+            )}
 
             {coords && (
               <View style={styles.attributeRow}>

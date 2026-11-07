@@ -18,6 +18,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -125,6 +126,8 @@ class IncidentServiceTest {
         request.setTitulo("  Bache en la calzada  ");
         request.setDescripcion("  Hay un bache frente al número 12.  ");
         request.setCategoria("  Vía pública  ");
+        request.setLatitud(new BigDecimal("36.721274"));
+        request.setLongitud(new BigDecimal("-4.421399"));
 
         when(appUserRepository.findFirstByOrderByIdAsc()).thenReturn(Optional.of(testUser));
         when(incidentRepository.save(any(Incident.class))).thenAnswer(invocation -> {
@@ -143,6 +146,8 @@ class IncidentServiceTest {
         assertEquals("Abierta", result.getEstado());
         assertEquals("Media", result.getPrioridad());
         assertEquals(1, result.getIdCreador());
+        assertEquals(new BigDecimal("36.721274"), result.getLatitud());
+        assertEquals(new BigDecimal("-4.421399"), result.getLongitud());
         verify(incidentRepository).save(any(Incident.class));
     }
 
@@ -152,6 +157,8 @@ class IncidentServiceTest {
         CreateIncidentRequest request = new CreateIncidentRequest();
         request.setTitulo("Alumbrado apagado");
         request.setDescripcion("La farola no enciende.");
+        request.setLatitud(new BigDecimal("36.7"));
+        request.setLongitud(new BigDecimal("-4.4"));
 
         when(appUserRepository.findFirstByOrderByIdAsc()).thenReturn(Optional.of(testUser));
         when(incidentRepository.save(any(Incident.class))).thenAnswer(invocation -> {
