@@ -14,7 +14,7 @@ import IncidentMapView from '@/components/IncidentMapView';
 import type { Coordinate, MapHandle, MapPressEvent } from '@/components/incident-map-view.types';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Brand, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { createIncident } from '@/services/incidentService';
 
@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 10,
     right: 10,
-    backgroundColor: '#2563eb',
+    backgroundColor: Brand.blue,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: Spacing.three,
     borderRadius: Spacing.two,
-    backgroundColor: '#16a34a',
+    backgroundColor: Brand.orange,
   },
   submitButtonText: {
     color: '#ffffff',

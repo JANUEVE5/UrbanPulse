@@ -1,7 +1,7 @@
 /**
- * Tokens visuales de UrbanPulse (modo claro y oscuro).
- * - primary: azul mar, color de marca y de los elementos activos.
- * - signal: naranja señal, reservado para las incidencias en el mapa.
+ * Tokens visuales de UrbanPulse (modo claro y oscuro), tomados del logo.
+ * - primary: azul del logo, color de marca y de los elementos activos.
+ * - signal: naranja del logo, para las incidencias en el mapa y la acción principal (crear).
  * - border: líneas y separadores.
  */
 
@@ -14,12 +14,12 @@ export const Colors = {
     text: '#1B2733',
     background: '#FFFFFF',
     backgroundElement: '#F3F6F8',
-    backgroundSelected: '#E2EDF4',
+    backgroundSelected: '#E3ECF5',
     textSecondary: '#5B6875',
     border: '#DCE3E8',
-    primary: '#0E5A8A',
+    primary: '#104F85',
     onPrimary: '#FFFFFF',
-    signal: '#E8590C',
+    signal: '#F5841B',
     scrim: 'rgba(27, 39, 51, 0.45)',
   },
   dark: {
@@ -29,11 +29,18 @@ export const Colors = {
     backgroundSelected: '#1F3A4D',
     textSecondary: '#9AA9B5',
     border: '#26394A',
-    primary: '#5BB0E6',
+    primary: '#6BA8E0',
     onPrimary: '#0F1A22',
-    signal: '#FF7A33',
+    signal: '#FF9533',
     scrim: 'rgba(0, 0, 0, 0.55)',
   },
+} as const;
+
+/** Colores del logo, iguales en modo claro y oscuro (botones y marcadores sobre el mapa). */
+export const Brand = {
+  blue: '#104F85',
+  orange: '#F5841B',
+  white: '#FFFFFF',
 } as const;
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
