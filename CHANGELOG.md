@@ -27,6 +27,11 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ### Changed
 
+- La configuración del backend se lee de variables de entorno (`${VARIABLE:valor-por-defecto}` en
+  `application.properties`), con valores por defecto solo para desarrollo.
+- CORS se configura en un único sitio (`WebConfig`) con los orígenes de `CORS_ALLOWED_ORIGINS`; se eliminan
+  los `@CrossOrigin("*")` de los controllers.
+- Los logs de SQL (`spring.jpa.show-sql`) se desactivan por defecto y se activan con `SHOW_SQL=true`.
 - ADR-010 pasa a `Accepted`.
 - El detalle ya no deduce la posición a partir del nombre de la calle: usa las coordenadas de la API.
 - `IncidentMapView` migrado a TypeScript; `npx tsc --noEmit` vuelve a pasar en el frontend.
