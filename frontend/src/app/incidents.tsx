@@ -11,9 +11,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CreateIncidentForm } from '@/components/create-incident-form';
 import IncidentMapView from '@/components/IncidentMapView';
+import IncidentsMap from '@/components/incidents-map';
+import type { MapIncident } from '@/components/incidents-map.types';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors, FloatingMenuInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { Brand, Colors, FloatingMenuInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useIsWideLayout } from '@/hooks/use-layout';
 import { useTheme } from '@/hooks/use-theme';
 import {
@@ -24,8 +26,10 @@ import {
 
 export default function IncidentsScreen() {
   const router = useRouter();
-  const searchParams = useLocalSearchParams<{ id?: string }>();
+  const searchParams = useLocalSearchParams<{ id?: string; vista?: string }>();
   const selectedId = searchParams.id ? Number(searchParams.id) : null;
+  // Vista principal: mapa por defecto; ?vista=lista muestra el listado
+  const showList = searchParams.vista === 'lista';
 
   const insets = useSafeAreaInsets();
   const theme = useTheme();
@@ -89,7 +93,21 @@ export default function IncidentsScreen() {
   const handleBackToList = () => {
     setIncidentDetail(null);
     setErrorDetail(null);
-    router.push('/incidents');
+    // Vuelve a la vista desde la que se abrió (mapa o lista)
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.push('/incidents');
+    }
+  };
+
+  const toggleView = () => {
+    router.setParams({ vista: showList ? undefined : 'lista' });
+  };
+
+  const startCreating = () => {
+    setCreationSuccess(false);
+    setCreatingIncident(true);
   };
 
   const handleIncidentCreated = async () => {
@@ -106,45 +124,131 @@ export default function IncidentsScreen() {
     paddingRight: insets.right + Spacing.three,
   };
 
-  return (
-    <ScrollView
-      style={[styles.scrollView, { backgroundColor: theme.background }]}
-      contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}>
-      <View style={styles.maxContainer}>
-        {selectedId ? (
-          // =================== VISTA DETALLE ===================
-          <IncidentDetailView
-            id={selectedId}
-            incident={incidentDetail}
-            loading={loadingDetail}
-            error={errorDetail}
-            isDark={isDark}
-            onBack={handleBackToList}
-            onRetry={() => fetchDetail(selectedId)}
-          />
-        ) : creatingIncident ? (
-          <CreateIncidentForm
-            onCancel={() => setCreatingIncident(false)}
-            onCreated={handleIncidentCreated}
-          />
-        ) : (
-          // =================== VISTA LISTADO ===================
-          <IncidentListView
-            incidents={incidents}
-            loading={loadingList}
-            error={errorList}
-            isDark={isDark}
-            onSelectIncident={handleSelectIncident}
-            onRetry={fetchIncidents}
-            onCreate={() => {
-              setCreationSuccess(false);
-              setCreatingIncident(true);
-            }}
-            creationSuccess={creationSuccess}
-          />
+  // =================== VISTA MAPA (principal) ===================
+  if (!selectedId && !creatingIncident && !showList) {
+    const mapIncidents: MapIncident[] = incidents
+      .filter((i) => i.latitud != null && i.longitud != null)
+      .map((i) => ({
+        id: i.id,
+        titulo: i.titulo || i.reporteCentral,
+        localizacion: i.localizacion,
+        estado: i.estado,
+        latitud: Number(i.latitud),
+        longitud: Number(i.longitud),
+      }));
+
+    return (
+      <View style={[styles.mapScreen, { backgroundColor: theme.background }]}>
+        <IncidentsMap incidents={mapIncidents} onOpenIncident={handleSelectIncident} />
+
+        {(loadingList || errorList || creationSuccess) && (
+          <View
+            style={[styles.mapBanner, { top: insets.top + (isWide ? Spacing.three : FloatingMenuInset) }]}
+            pointerEvents="box-none">
+            <ThemedView type="background" style={[styles.mapBannerBox, { borderColor: theme.border }]}>
+              {loadingList ? (
+                <ThemedText type="small">Cargando incidencias…</ThemedText>
+              ) : errorList ? (
+                <>
+                  <ThemedText type="small" style={styles.errorTitle}>
+                    No se pudieron cargar las incidencias.
+                  </ThemedText>
+                  <Pressable onPress={fetchIncidents} accessibilityRole="button">
+                    <ThemedText type="smallBold" style={{ color: theme.primary }}>
+                      Reintentar
+                    </ThemedText>
+                  </Pressable>
+                </>
+              ) : (
+                <ThemedText type="smallBold" style={styles.successText}>
+                  Incidencia registrada.
+                </ThemedText>
+              )}
+            </ThemedView>
+          </View>
         )}
+
+        <ViewToggle showList={false} onToggle={toggleView} top={insets.top + Spacing.three} />
+
+        <Pressable
+          onPress={startCreating}
+          accessibilityRole="button"
+          accessibilityLabel="Crear incidencia"
+          style={({ pressed }) => [
+            styles.fab,
+            { bottom: insets.bottom + Spacing.four, right: insets.right + Spacing.three },
+            pressed && styles.pressed,
+          ]}>
+          <ThemedText style={styles.fabIcon}>+</ThemedText>
+          {isWide && <ThemedText style={styles.fabLabel}>Crear incidencia</ThemedText>}
+        </Pressable>
       </View>
-    </ScrollView>
+    );
+  }
+
+  return (
+    <View style={styles.mapScreen}>
+      <ScrollView
+        style={[styles.scrollView, { backgroundColor: theme.background }]}
+        contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}>
+        <View style={styles.maxContainer}>
+          {selectedId ? (
+            // =================== VISTA DETALLE ===================
+            <IncidentDetailView
+              id={selectedId}
+              incident={incidentDetail}
+              loading={loadingDetail}
+              error={errorDetail}
+              isDark={isDark}
+              onBack={handleBackToList}
+              onRetry={() => fetchDetail(selectedId)}
+            />
+          ) : creatingIncident ? (
+            <CreateIncidentForm
+              onCancel={() => setCreatingIncident(false)}
+              onCreated={handleIncidentCreated}
+            />
+          ) : (
+            // =================== VISTA LISTADO ===================
+            <IncidentListView
+              incidents={incidents}
+              loading={loadingList}
+              error={errorList}
+              isDark={isDark}
+              onSelectIncident={handleSelectIncident}
+              onRetry={fetchIncidents}
+              onCreate={startCreating}
+              creationSuccess={creationSuccess}
+            />
+          )}
+        </View>
+      </ScrollView>
+      {showList && !selectedId && !creatingIncident && (
+        <ViewToggle showList onToggle={toggleView} top={insets.top + Spacing.three} />
+      )}
+    </View>
+  );
+}
+
+// -------------------------------------------------------------
+// Botón flotante (arriba a la derecha) para cambiar entre mapa y lista
+// -------------------------------------------------------------
+function ViewToggle({ showList, onToggle, top }: { showList: boolean; onToggle: () => void; top: number }) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      onPress={onToggle}
+      accessibilityRole="button"
+      accessibilityLabel={showList ? 'Ver el mapa de incidencias' : 'Ver la lista de incidencias'}
+      style={({ pressed }) => [
+        styles.viewToggle,
+        { top, backgroundColor: theme.background, borderColor: theme.border },
+        pressed && styles.pressed,
+      ]}>
+      <ThemedText type="smallBold" style={{ color: theme.primary }}>
+        {showList ? 'Ver mapa' : 'Ver lista'}
+      </ThemedText>
+    </Pressable>
   );
 }
 
@@ -212,7 +316,7 @@ function IncidentListView({
       {/* Estado de Carga */}
       {loading && (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#3c87f7" />
+          <ActivityIndicator size="large" color={Brand.blue} />
           <ThemedText type="small" style={{ marginTop: Spacing.two }}>
             Cargando incidencias...
           </ThemedText>
@@ -393,7 +497,7 @@ function IncidentDetailView({
       {/* Estado de carga */}
       {loading && (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#3c87f7" />
+          <ActivityIndicator size="large" color={Brand.blue} />
           <ThemedText type="small" style={{ marginTop: Spacing.two }}>
             Obteniendo detalle de la incidencia #{id}...
           </ThemedText>
@@ -697,6 +801,75 @@ function getPriorityBadgeColor(priority: string, isDark: boolean) {
 }
 
 const styles = StyleSheet.create({
+  mapScreen: {
+    flex: 1,
+  },
+  mapBanner: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  mapBannerBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  viewToggle: {
+    position: 'absolute',
+    right: Spacing.three,
+    height: 44,
+    paddingHorizontal: Spacing.three,
+    borderRadius: 22,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  fab: {
+    position: 'absolute',
+    minWidth: 56,
+    height: 56,
+    borderRadius: 28,
+    paddingHorizontal: Spacing.three,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.two,
+    backgroundColor: Brand.orange,
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 5,
+  },
+  fabIcon: {
+    color: Brand.white,
+    fontSize: 30,
+    lineHeight: 32,
+    fontWeight: '500',
+  },
+  fabLabel: {
+    color: Brand.white,
+    fontSize: 15,
+    fontWeight: '700',
+  },
   scrollView: {
     flex: 1,
   },
@@ -724,7 +897,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   createButton: {
-    backgroundColor: '#16a34a',
+    backgroundColor: Brand.orange,
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
     borderRadius: Spacing.four,
@@ -736,7 +909,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   refreshButton: {
-    backgroundColor: '#3c87f7',
+    backgroundColor: Brand.blue,
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
     borderRadius: Spacing.four,
@@ -815,7 +988,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   idBadge: {
-    backgroundColor: '#3c87f7',
+    backgroundColor: Brand.blue,
     paddingHorizontal: Spacing.two,
     paddingVertical: 2,
     borderRadius: Spacing.two,
@@ -864,7 +1037,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#3c87f7',
+    backgroundColor: Brand.blue,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -889,7 +1062,7 @@ const styles = StyleSheet.create({
   },
   cardSectionTitle: {
     letterSpacing: 0.8,
-    color: '#3c87f7',
+    color: Brand.blue,
     marginBottom: Spacing.one,
   },
   attributeRow: {
@@ -918,8 +1091,8 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   historyNotice: {
-    backgroundColor: 'rgba(60, 135, 247, 0.1)',
-    borderColor: '#3c87f7',
+    backgroundColor: 'rgba(16, 79, 133, 0.1)',
+    borderColor: Brand.blue,
     borderWidth: 1,
     borderRadius: Spacing.two,
     padding: Spacing.three,
@@ -943,13 +1116,13 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#3c87f7',
+    backgroundColor: Brand.blue,
     marginTop: 4,
   },
   timelineLine: {
     flex: 1,
     width: 2,
-    backgroundColor: '#3c87f7',
+    backgroundColor: Brand.blue,
     opacity: 0.4,
     marginTop: 4,
   },
