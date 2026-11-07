@@ -9,6 +9,12 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ### Added
 
+- RF08: vista principal de mapa con un marcador por incidencia. El primer clic en un marcador muestra una
+  tarjeta con el título, la calle y el estado; el clic en la tarjeta abre el detalle (igual en móvil y web) (#18).
+- Botón para cambiar entre mapa y lista (arriba a la derecha) y botón flotante para crear incidencias
+  (abajo a la derecha).
+- Logo de UrbanPulse: icono de la app, icono adaptativo de Android, splash, favicon y `logo.webp` en la barra
+  lateral.
 - Barra lateral de navegación: fija a la izquierda en pantallas anchas y desplegable con un botón de menú
   arriba a la izquierda en móvil. Incluye las secciones futuras Perfil, Ajustes y Administración (desactivadas).
 - Paleta propia de UrbanPulse (azul mar y naranja señal) en modo claro y oscuro.
@@ -30,6 +36,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ### Changed
 
+- Paleta adaptada a los colores del logo (azul `#104F85` y naranja `#F5841B`); los botones de la app usan
+  esos tokens en lugar de colores escritos a mano.
 - ADR-010 pasa a `Accepted`.
 - El detalle ya no deduce la posición a partir del nombre de la calle: usa las coordenadas de la API.
 - `IncidentMapView` migrado a TypeScript; `npx tsc --noEmit` vuelve a pasar en el frontend.
