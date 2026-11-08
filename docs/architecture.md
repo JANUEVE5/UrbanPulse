@@ -92,7 +92,7 @@ flowchart TB
 
 | Contenedor | Tecnología | Responsabilidad | Estado |
 |---|---|---|---|
-| App cliente | Expo SDK 58, React Native 0.88, Expo Router, react-native-maps, expo-location | Vista principal de mapa con las incidencias (tarjeta al pulsar un marcador y detalle al pulsar la tarjeta), vista de lista, registro y detalle, con barra lateral de navegación (fija en escritorio, desplegable en móvil). | 🚧 |
+| App cliente | Expo SDK 58, React Native 0.88, Expo Router, react-native-maps, expo-location | Vista principal de mapa con las incidencias (tarjeta al pulsar un marcador y detalle al pulsar la tarjeta), vista de lista, registro y detalle, inicio de sesión y creación de cuenta, con barra lateral de navegación (fija en escritorio, desplegable en móvil) que muestra el usuario y las secciones según su rol. | 🚧 |
 | API REST | Spring Boot 4, Spring MVC, Spring Data JPA, Maven | Punto de entrada único, reglas de negocio y ciclo de vida. | 🚧 |
 | Base de datos | PostgreSQL 15 | Persistencia del dominio y del historial de cambios de estado. | ✅ |
 | Object Storage | S3 / MinIO | Almacenar evidencias binarias fuera de la base de datos relacional. | 📋 |
@@ -181,6 +181,9 @@ sequenceDiagram
 - La API no guarda sesiones: cada petición lleva su token (Twelve-Factor, factor VI).
 - Los tokens se firman con HMAC-SHA256 y la clave `JWT_SECRET`; caducan a los `JWT_EXPIRATION_MINUTES`.
 - Las reglas de acceso están en `SecurityConfig` y, por método, con `@PreAuthorize("hasRole('...')")`.
+- En la app, `AuthProvider` (`src/context/auth-context.tsx`) guarda el token (almacén cifrado en móvil,
+  `localStorage` en web), lo añade a cada petición desde `src/services/apiClient.ts` y cierra la sesión si la API
+  responde 401. Crear una incidencia sin sesión lleva al inicio de sesión.
 
 Cuando la API se estabilice, el contrato se publicará en OpenAPI en `docs/api/openapi.yml`.
 

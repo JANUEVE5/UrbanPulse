@@ -5,8 +5,11 @@ Complementa al [`AGENTS.md`](../AGENTS.md) raíz (flujo de Git, Twelve-Factor y 
 ## Reglas del proyecto UrbanPulse
 
 - **TypeScript**: el código nuevo va en `.ts`/`.tsx`. No añadas ficheros `.js`/`.jsx`.
-- **Peticiones HTTP**: centralízalas en `src/services/`. Nunca hagas `fetch` dentro de componentes visuales.
-  Hay un único servicio por recurso (por ejemplo, `src/services/incidentService.ts`).
+- **Peticiones HTTP**: centralízalas en `src/services/` usando `apiRequest` de `src/services/apiClient.ts`
+  (añade el token y traduce los errores). Nunca hagas `fetch` dentro de componentes visuales. Hay un único
+  servicio por recurso (por ejemplo, `src/services/incidentService.ts`).
+- **Sesión**: usa `useAuth()` (`src/context/auth-context.tsx`) para saber si hay usuario y su rol. El token se
+  guarda con `src/lib/token-storage` (SecureStore en móvil, `localStorage` en web); no lo guardes en otro sitio.
 - **URL de la API**: se lee de `process.env.EXPO_PUBLIC_API_URL`. No escribas URLs ni IPs fijas fuera del
   valor por defecto de desarrollo.
 - **Mapas**: `react-native-maps` en nativo y la variante `.web.tsx` con Leaflet para web (carga común en

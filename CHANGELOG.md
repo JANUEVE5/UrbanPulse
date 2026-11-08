@@ -9,6 +9,11 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ### Added
 
+- RF01/RF02 (frontend): pantallas de iniciar sesión y crear cuenta; la sesión se guarda (almacén cifrado en
+  móvil, `localStorage` en web) y se restaura al abrir la app. Crear una incidencia sin sesión lleva al login y
+  después abre el formulario. La barra lateral muestra el usuario, su rol y «Cerrar sesión», y la sección
+  Administración solo para `ADMIN`.
+- Cliente HTTP común (`apiClient.ts`) que añade el token a las peticiones y traduce los errores a mensajes claros.
 - RF01/RF02 (backend): autenticación con Spring Security y JWT. `POST /api/auth/register`, `POST /api/auth/login`
   y `GET /api/auth/me`. Contraseñas con BCrypt y roles `CITIZEN`, `OPERATOR`, `TECHNICIAN`, `ADMIN` y `ANALYST`.
 - Usuarios de prueba con roles en `data.sql` (contraseña de desarrollo `urbanpulse-dev`) y variables

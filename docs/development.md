@@ -147,6 +147,9 @@ En la consola de Expo:
 - **`a`** abre el emulador de Android.
 - Escanea el **QR** con Expo Go para probar en un móvil de la misma red Wi-Fi.
 
+Para crear incidencias hay que **iniciar sesión** desde la barra lateral con uno de los usuarios de prueba
+(ver «Usuarios de prueba» más arriba) o creando una cuenta nueva.
+
 > Windows: si PowerShell bloquea la ejecución de scripts, ejecuta una vez
 > `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`.
 
