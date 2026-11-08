@@ -92,7 +92,7 @@ flowchart TB
 
 | Contenedor | Tecnología | Responsabilidad | Estado |
 |---|---|---|---|
-| App cliente | Expo SDK 57, React Native, Expo Router, react-native-maps, expo-location | Vista principal de mapa con las incidencias (tarjeta al pulsar un marcador y detalle al pulsar la tarjeta), vista de lista, registro y detalle, con barra lateral de navegación (fija en escritorio, desplegable en móvil). | 🚧 |
+| App cliente | Expo SDK 58, React Native 0.88, Expo Router, react-native-maps, expo-location | Vista principal de mapa con las incidencias (tarjeta al pulsar un marcador y detalle al pulsar la tarjeta), vista de lista, registro y detalle, con barra lateral de navegación (fija en escritorio, desplegable en móvil). | 🚧 |
 | API REST | Spring Boot 4, Spring MVC, Spring Data JPA, Maven | Punto de entrada único, reglas de negocio y ciclo de vida. | 🚧 |
 | Base de datos | PostgreSQL 15 | Persistencia del dominio y del historial de cambios de estado. | ✅ |
 | Object Storage | S3 / MinIO | Almacenar evidencias binarias fuera de la base de datos relacional. | 📋 |
