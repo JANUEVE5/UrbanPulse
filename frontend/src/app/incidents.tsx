@@ -17,6 +17,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Brand, FloatingMenuInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useIsWideLayout } from '@/hooks/use-layout';
+import { useAuth } from '@/context/auth-context';
 import { useTheme } from '@/hooks/use-theme';
 import {
   getIncidentById,
@@ -26,7 +27,8 @@ import {
 
 export default function IncidentsScreen() {
   const router = useRouter();
-  const searchParams = useLocalSearchParams<{ id?: string; vista?: string }>();
+  const searchParams = useLocalSearchParams<{ id?: string; vista?: string; crear?: string }>();
+  const { status: authStatus } = useAuth();
   const selectedId = searchParams.id ? Number(searchParams.id) : null;
   // Vista principal: mapa por defecto; ?vista=lista muestra el listado
   const showList = searchParams.vista === 'lista';
@@ -104,10 +106,26 @@ export default function IncidentsScreen() {
     router.setParams({ vista: showList ? undefined : 'lista' });
   };
 
+  // Crear incidencias exige sesión (RF01): sin ella se va al login y, al entrar, se abre el formulario
   const startCreating = () => {
+    if (authStatus !== 'signedIn') {
+      router.push({ pathname: '/login', params: { destino: 'crear' } });
+      return;
+    }
     setCreationSuccess(false);
     setCreatingIncident(true);
   };
+
+  // Vuelta del login con ?crear=1: abrir el formulario directamente
+  const openCreateFromLogin = searchParams.crear === '1' && authStatus === 'signedIn';
+  useEffect(() => {
+    if (!openCreateFromLogin) return;
+    router.setParams({ crear: undefined });
+    void Promise.resolve().then(() => {
+      setCreationSuccess(false);
+      setCreatingIncident(true);
+    });
+  }, [openCreateFromLogin, router]);
 
   const handleIncidentCreated = async () => {
     setCreatingIncident(false);
