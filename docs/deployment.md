@@ -29,7 +29,7 @@ Definida en [`.github/workflows/`](../.github/workflows/). Se ejecuta en cada Pu
 | Workflow | Qué hace |
 |---|---|
 | `backend-build.yml` | Levanta PostgreSQL 15, configura Java 17 (Temurin) y ejecuta `mvn clean verify` en `backend/`. |
-| `frontend-build.yml` | Configura Node.js 20 e instala las dependencias de `frontend/`. |
+| `frontend-build.yml` | Configura Node.js 22 e instala las dependencias de `frontend/`. |
 
 Un PR no se fusiona si la CI no está en verde.
 

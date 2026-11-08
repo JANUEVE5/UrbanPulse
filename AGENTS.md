@@ -37,7 +37,7 @@ Antes de diseñar algo, lee `docs/architecture.md` y los ADR de `docs/adr/`. No 
 - Las dependencias se declaran explícitamente: `pom.xml` (con `./mvnw`) y `package.json` (con
   `npx expo install`).
 - El backend no guarda estado en memoria entre peticiones. Los logs van a stdout.
-- Mantén la paridad de versiones entre local, CI y despliegue: Java 17, Node 20, PostgreSQL 15.
+- Mantén la paridad de versiones entre local, CI y despliegue: Java 17, Node 22, PostgreSQL 15.
 
 ## Flujo de Git (obligatorio)
 

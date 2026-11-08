@@ -1,6 +1,9 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * Tokens visuales de UrbanPulse, tomados del logo. La app usa solo tema claro: el logo es mitad azul
+ * y no se distingue sobre fondos oscuros, y el mapa ya es claro.
+ * - primary: azul del logo, color de marca y de los elementos activos.
+ * - signal: naranja del logo, para las incidencias en el mapa y la acción principal (crear).
+ * - border: líneas y separadores.
  */
 
 import '@/global.css';
@@ -8,23 +11,26 @@ import '@/global.css';
 import { Platform } from 'react-native';
 
 export const Colors = {
-  light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
-  },
-  dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
-  },
+  text: '#1B2733',
+  background: '#FFFFFF',
+  backgroundElement: '#F3F6F8',
+  backgroundSelected: '#E3ECF5',
+  textSecondary: '#5B6875',
+  border: '#DCE3E8',
+  primary: '#104F85',
+  onPrimary: '#FFFFFF',
+  signal: '#F5841B',
+  scrim: 'rgba(27, 39, 51, 0.45)',
 } as const;
 
-export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
+/** Colores del logo (botones y marcadores sobre el mapa). */
+export const Brand = {
+  blue: '#104F85',
+  orange: '#F5841B',
+  white: '#FFFFFF',
+} as const;
+
+export type ThemeColor = keyof typeof Colors;
 
 export const Fonts = Platform.select({
   ios: {
@@ -61,7 +67,10 @@ export const Spacing = {
   six: 64,
 } as const;
 
-export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
-/** En web la barra de pestañas va arriba, en posición absoluta (~78 px): el contenido debe empezar debajo. */
-export const TopTabInset = Platform.select({ web: 80 }) ?? 0;
 export const MaxContentWidth = 800;
+
+/** A partir de este ancho la barra lateral se muestra fija; por debajo, se despliega con el botón de menú. */
+export const WideLayoutMinWidth = 900;
+export const SidebarWidth = 248;
+/** Espacio que deja libre el botón flotante de menú (arriba a la izquierda) en pantallas estrechas. */
+export const FloatingMenuInset = 64;

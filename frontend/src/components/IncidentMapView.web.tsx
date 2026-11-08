@@ -1,41 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 import type { IncidentMapViewProps, MapRegion } from './incident-map-view.types';
 
-/**
- * Mapa de incidencias para web, con Leaflet + OpenStreetMap.
- * Leaflet se carga desde CDN en tiempo de ejecución, así que solo se tipa la parte de su API que se usa.
- */
-interface LeafletLatLng {
-  lat: number;
-  lng: number;
-}
-interface LeafletMarker {
-  setLatLng: (latLng: [number, number]) => void;
-  addTo: (map: LeafletMap) => LeafletMarker;
-}
-interface LeafletMap {
-  on: (event: 'click', handler: (e: { latlng: LeafletLatLng }) => void) => void;
-  setView: (center: [number, number], zoom: number, options?: { animate?: boolean }) => void;
-  panTo: (center: [number, number]) => void;
-  getZoom: () => number;
-  invalidateSize: () => void;
-  removeLayer: (layer: LeafletMarker) => void;
-  remove: () => void;
-}
-interface LeafletStatic {
-  map: (el: HTMLElement, options: { center: [number, number]; zoom: number; zoomControl: boolean }) => LeafletMap;
-  tileLayer: (url: string, options: { maxZoom: number; attribution: string }) => { addTo: (map: LeafletMap) => void };
-  marker: (latLng: [number, number]) => LeafletMarker;
-  icon: (options: Record<string, unknown>) => unknown;
-  Marker: { prototype: { options: { icon?: unknown } } };
-}
+import { OSM_ATTRIBUTION, OSM_TILES, useLeaflet, type LeafletMap, type LeafletMarker } from '@/lib/leaflet.web';
 
-declare global {
-  interface Window {
-    L?: LeafletStatic;
-  }
-}
+/** Mapa para elegir o mostrar la posición de UNA incidencia (formulario y detalle), con Leaflet. */
 
 const DEFAULT_CENTER = { latitude: 36.721274, longitude: -4.421399 };
 
@@ -46,67 +15,22 @@ export default function IncidentMapView({
   onPress,
   selectedCoordinate,
 }: IncidentMapViewProps) {
+  const L = useLeaflet();
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<LeafletMap | null>(null);
   const markerInstanceRef = useRef<LeafletMarker | null>(null);
-  const [leafletReady, setLeafletReady] = useState(typeof window !== 'undefined' && !!window.L);
 
   const defaultLat =
     selectedCoordinate?.latitude ?? region?.latitude ?? initialRegion?.latitude ?? DEFAULT_CENTER.latitude;
   const defaultLng =
     selectedCoordinate?.longitude ?? region?.longitude ?? initialRegion?.longitude ?? DEFAULT_CENTER.longitude;
 
-  // 1. Inyectar CSS y script de Leaflet en el documento si aún no existen
+  // 1. Inicializar el mapa cuando Leaflet esté disponible
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (!L || !mapContainerRef.current || mapInstanceRef.current) return;
 
-    if (!document.getElementById('leaflet-css')) {
-      const link = document.createElement('link');
-      link.id = 'leaflet-css';
-      link.rel = 'stylesheet';
-      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-      document.head.appendChild(link);
-    }
-
-    if (!window.L && !document.getElementById('leaflet-js')) {
-      const script = document.createElement('script');
-      script.id = 'leaflet-js';
-      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-      script.async = true;
-      script.onload = () => setLeafletReady(true);
-      document.body.appendChild(script);
-    }
-    // Si window.L ya existía, leafletReady se inicializa a true en el useState.
-  }, []);
-
-  // 2. Inicializar Leaflet cuando la librería esté lista y el contenedor montado
-  useEffect(() => {
-    const L = window.L;
-    if (!leafletReady || !mapContainerRef.current || mapInstanceRef.current || !L) {
-      return;
-    }
-
-    // Icono por defecto con URLs absolutas para evitar iconos rotos
-    L.Marker.prototype.options.icon = L.icon({
-      iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-      iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
-      popupAnchor: [1, -34],
-      shadowSize: [41, 41],
-    });
-
-    const map = L.map(mapContainerRef.current, {
-      center: [defaultLat, defaultLng],
-      zoom: 15,
-      zoomControl: true,
-    });
-
-    L.tileLayer('https://a.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    }).addTo(map);
+    const map = L.map(mapContainerRef.current, { center: [defaultLat, defaultLng], zoom: 15, zoomControl: true });
+    L.tileLayer(OSM_TILES, { maxZoom: 19, attribution: OSM_ATTRIBUTION }).addTo(map);
 
     map.on('click', (e) => {
       onPress?.({
@@ -135,23 +59,25 @@ export default function IncidentMapView({
     }
 
     // Asegura el renderizado correcto en contenedores dinámicos
-    const resizeTimer = setTimeout(() => map.invalidateSize(), 250);
+    // Recalcula el tamaño cuando cambia el contenedor (al cargar, al rotar o redimensionar la ventana);
+    // si no, Leaflet solo pinta las teselas del tamaño inicial
+    const container = mapContainerRef.current;
+    const observer = new ResizeObserver(() => map.invalidateSize({ animate: false }));
+    observer.observe(container);
 
     return () => {
-      // Evita que el temporizador actúe sobre un mapa ya destruido (error "_leaflet_pos")
-      clearTimeout(resizeTimer);
+      observer.disconnect();
       map.remove();
       mapInstanceRef.current = null;
       markerInstanceRef.current = null;
     };
     // Solo se inicializa una vez, cuando Leaflet está disponible
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leafletReady]);
+  }, [L]);
 
-  // 3. Sincronizar el marcador cuando cambia la coordenada seleccionada
+  // 2. Sincronizar el marcador cuando cambia la coordenada seleccionada
   useEffect(() => {
     const map = mapInstanceRef.current;
-    const L = window.L;
     if (!map || !L) return;
 
     if (selectedCoordinate) {
@@ -169,7 +95,7 @@ export default function IncidentMapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCoordinate?.latitude, selectedCoordinate?.longitude]);
 
-  // 4. Centrar cuando cambia la región
+  // 3. Centrar cuando cambia la región
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map || !region) return;
@@ -180,7 +106,7 @@ export default function IncidentMapView({
   return (
     <div
       ref={mapContainerRef}
-      style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 1 }}
+      style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 0, isolation: 'isolate' }}
     />
   );
 }

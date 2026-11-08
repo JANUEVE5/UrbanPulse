@@ -9,8 +9,11 @@ Complementa al [`AGENTS.md`](../AGENTS.md) raíz (flujo de Git, Twelve-Factor y 
   Hay un único servicio por recurso (por ejemplo, `src/services/incidentService.ts`).
 - **URL de la API**: se lee de `process.env.EXPO_PUBLIC_API_URL`. No escribas URLs ni IPs fijas fuera del
   valor por defecto de desarrollo.
-- **Mapas**: `react-native-maps` en nativo y la variante `.web.tsx` para web. La ubicación se obtiene con
-  `expo-location`.
+- **Mapas**: `react-native-maps` en nativo y la variante `.web.tsx` con Leaflet para web (carga común en
+  `src/lib/leaflet.web.ts`). `IncidentMapView` es el mapa de una incidencia (formulario y detalle);
+  `incidents-map` es el mapa principal con todas. La ubicación se obtiene con `expo-location`.
+- **Colores**: usa los tokens de `src/constants/theme.ts` (`Colors`, `Brand` con el azul y el naranja del
+  logo); no escribas colores de marca a mano.
 - **Pantallas** en `src/app/` (Expo Router). Componentes, hooks y servicios fuera de `src/app/`.
 - Antes de terminar: `npx tsc --noEmit` y `npx expo lint`.
 

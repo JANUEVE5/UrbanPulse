@@ -23,11 +23,11 @@ Cómo preparar el entorno, ejecutar, probar y contribuir a UrbanPulse en local (
 |---|---|---|
 | Git | cualquiera reciente | |
 | Java JDK | **17** | La misma versión que en CI. Maven no hace falta: se usa el wrapper `mvnw`. |
-| Node.js + npm | **20** | La misma versión que en CI. |
+| Node.js + npm | **22.13 o superior** | La misma versión que en CI (lo exige Expo SDK 58 / React Native 0.88). |
 | Docker + Docker Compose | reciente | Para levantar PostgreSQL sin instalarlo en el equipo. |
 | Expo Go | última | Opcional, para probar la app en un móvil físico. |
 
-> NixOS: `nix shell nixpkgs#jdk17 nixpkgs#nodejs_20`.
+> NixOS: `nix shell nixpkgs#jdk17 nixpkgs#nodejs_22`.
 
 ## 2. Preparar el entorno
 
@@ -237,8 +237,8 @@ backend/src/main/resources/
 └── data.sql      # Datos de prueba
 
 frontend/src/
-├── app/          # Pantallas (rutas de Expo Router)
-├── components/   # Componentes reutilizables
+├── app/          # Pantallas (rutas de Expo Router); _layout.tsx monta AppShell
+├── components/   # Componentes reutilizables (app-shell y sidebar: estructura con barra lateral)
 ├── constants/    # Tema y constantes
 ├── hooks/        # Hooks
 └── services/     # Llamadas HTTP a la API (nunca fetch dentro de componentes)
