@@ -15,7 +15,7 @@ import IncidentsMap from '@/components/incidents-map';
 import type { MapIncident } from '@/components/incidents-map.types';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Brand, Colors, FloatingMenuInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { Brand, FloatingMenuInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useIsWideLayout } from '@/hooks/use-layout';
 import { useTheme } from '@/hooks/use-theme';
 import {
@@ -33,7 +33,6 @@ export default function IncidentsScreen() {
 
   const insets = useSafeAreaInsets();
   const theme = useTheme();
-  const isDark = theme.background === Colors.dark.background;
   const isWide = useIsWideLayout();
 
   // Estados para la lista
@@ -199,7 +198,6 @@ export default function IncidentsScreen() {
               incident={incidentDetail}
               loading={loadingDetail}
               error={errorDetail}
-              isDark={isDark}
               onBack={handleBackToList}
               onRetry={() => fetchDetail(selectedId)}
             />
@@ -214,7 +212,6 @@ export default function IncidentsScreen() {
               incidents={incidents}
               loading={loadingList}
               error={errorList}
-              isDark={isDark}
               onSelectIncident={handleSelectIncident}
               onRetry={fetchIncidents}
               onCreate={startCreating}
@@ -259,7 +256,6 @@ interface ListViewProps {
   incidents: Incident[];
   loading: boolean;
   error: string | null;
-  isDark: boolean;
   onSelectIncident: (id: number) => void;
   onRetry: () => void;
   onCreate: () => void;
@@ -270,7 +266,6 @@ function IncidentListView({
   incidents,
   loading,
   error,
-  isDark,
   onSelectIncident,
   onRetry,
   onCreate,
@@ -354,8 +349,8 @@ function IncidentListView({
       {!loading && !error && incidents.length > 0 && (
         <View style={styles.listContainer}>
           {incidents.map((incident) => {
-            const statusColors = getStatusBadgeColor(incident.estado, isDark);
-            const priorityColors = getPriorityBadgeColor(incident.prioridad, isDark);
+            const statusColors = getStatusBadgeColor(incident.estado);
+            const priorityColors = getPriorityBadgeColor(incident.prioridad);
 
             return (
               <Pressable
@@ -456,7 +451,6 @@ interface DetailViewProps {
   incident: Incident | null;
   loading: boolean;
   error: string | null;
-  isDark: boolean;
   onBack: () => void;
   onRetry: () => void;
 }
@@ -466,12 +460,11 @@ function IncidentDetailView({
   incident,
   loading,
   error,
-  isDark,
   onBack,
   onRetry,
 }: DetailViewProps) {
-  const statusColors = incident ? getStatusBadgeColor(incident.estado, isDark) : null;
-  const priorityColors = incident ? getPriorityBadgeColor(incident.prioridad, isDark) : null;
+  const statusColors = incident ? getStatusBadgeColor(incident.estado) : null;
+  const priorityColors = incident ? getPriorityBadgeColor(incident.prioridad) : null;
   const coords = incident ? getIncidentCoordinates(incident) : null;
 
   return (
@@ -778,26 +771,26 @@ function formatDate(dateStr?: string | null): string {
   }
 }
 
-function getStatusBadgeColor(status: string, isDark: boolean) {
+function getStatusBadgeColor(status: string) {
   const norm = status?.toLowerCase() || '';
   if (norm.includes('resuelt') || norm.includes('cerrad')) {
-    return { bg: isDark ? '#143022' : '#dcfce7', text: '#15803d', border: '#4ade80' };
+    return { bg: '#dcfce7', text: '#15803d', border: '#4ade80' };
   }
   if (norm.includes('revis') || norm.includes('proceso') || norm.includes('curso')) {
-    return { bg: isDark ? '#1e293b' : '#e0f2fe', text: '#0284c7', border: '#38bdf8' };
+    return { bg: '#e0f2fe', text: '#0284c7', border: '#38bdf8' };
   }
-  return { bg: isDark ? '#3b1d1d' : '#fee2e2', text: '#dc2626', border: '#f87171' };
+  return { bg: '#fee2e2', text: '#dc2626', border: '#f87171' };
 }
 
-function getPriorityBadgeColor(priority: string, isDark: boolean) {
+function getPriorityBadgeColor(priority: string) {
   const norm = priority?.toLowerCase() || '';
   if (norm.includes('alt') || norm.includes('urgente')) {
-    return { bg: isDark ? '#3b1d1d' : '#fee2e2', text: '#dc2626', border: '#f87171' };
+    return { bg: '#fee2e2', text: '#dc2626', border: '#f87171' };
   }
   if (norm.includes('med')) {
-    return { bg: isDark ? '#35290a' : '#fef9c3', text: '#a16207', border: '#facc15' };
+    return { bg: '#fef9c3', text: '#a16207', border: '#facc15' };
   }
-  return { bg: isDark ? '#143022' : '#dcfce7', text: '#15803d', border: '#4ade80' };
+  return { bg: '#dcfce7', text: '#15803d', border: '#4ade80' };
 }
 
 const styles = StyleSheet.create({

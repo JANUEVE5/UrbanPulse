@@ -38,6 +38,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 - Paleta adaptada a los colores del logo (azul `#104F85` y naranja `#F5841B`); los botones de la app usan
   esos tokens en lugar de colores escritos a mano.
+- La app usa siempre el tema claro (se elimina el modo oscuro): el logo, mitad azul, no se distinguía sobre
+  fondos oscuros.
 - ADR-010 pasa a `Accepted`.
 - El detalle ya no deduce la posición a partir del nombre de la calle: usa las coordenadas de la API.
 - `IncidentMapView` migrado a TypeScript; `npx tsc --noEmit` vuelve a pasar en el frontend.

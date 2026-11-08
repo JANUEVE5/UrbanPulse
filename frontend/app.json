@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "urbanpulse",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "ios": {
       "icon": "./assets/images/icon.png"
     },
@@ -30,11 +30,7 @@
         {
           "backgroundColor": "#FFFFFF",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 160,
-          "dark": {
-            "backgroundColor": "#0F1A22",
-            "image": "./assets/images/splash-icon.png"
-          }
+          "imageWidth": 160
         }
       ]
     ],
