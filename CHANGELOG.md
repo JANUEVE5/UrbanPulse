@@ -9,6 +9,10 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ### Added
 
+- RF01/RF02 (backend): autenticación con Spring Security y JWT. `POST /api/auth/register`, `POST /api/auth/login`
+  y `GET /api/auth/me`. Contraseñas con BCrypt y roles `CITIZEN`, `OPERATOR`, `TECHNICIAN`, `ADMIN` y `ANALYST`.
+- Usuarios de prueba con roles en `data.sql` (contraseña de desarrollo `urbanpulse-dev`) y variables
+  `JWT_SECRET` y `JWT_EXPIRATION_MINUTES`.
 - RF04 (versión mínima): las incidencias guardan latitud y longitud (`NUMERIC(9,6)`), obligatorias y validadas
   al registrar; el formulario las envía desde el mapa y el detalle muestra la ubicación guardada (#14).
 - Botón con flecha para volver al listado desde el detalle de una incidencia.
@@ -27,6 +31,10 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ### Changed
 
+- Crear incidencias exige estar autenticado; el creador es el usuario del token (antes, el primer usuario
+  de la base de datos). Consultar incidencias sigue siendo público.
+- `GET /api/users` solo para `ADMIN` y sin exponer la entidad JPA (devuelve `UserDTO`).
+- ADR-009 pasa a `Accepted`.
 - La configuración del backend se lee de variables de entorno (`${VARIABLE:valor-por-defecto}` en
   `application.properties`), con valores por defecto solo para desarrollo.
 - CORS se configura en un único sitio (`WebConfig`) con los orígenes de `CORS_ALLOWED_ORIGINS`; se eliminan
