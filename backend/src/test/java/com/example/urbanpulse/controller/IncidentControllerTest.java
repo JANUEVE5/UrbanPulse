@@ -1,5 +1,6 @@
 package com.example.urbanpulse.controller;
 
+import com.example.urbanpulse.config.SecurityConfig;
 import com.example.urbanpulse.dto.IncidentDTO;
 import com.example.urbanpulse.dto.CreateIncidentRequest;
 import com.example.urbanpulse.dto.StatusChangeDTO;
@@ -8,6 +9,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -16,12 +18,15 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(IncidentController.class)
+@Import(SecurityConfig.class)
 class IncidentControllerTest {
 
     @Autowired
@@ -110,10 +115,10 @@ class IncidentControllerTest {
         dto.setLatitud(new java.math.BigDecimal("36.721274"));
         dto.setLongitud(new java.math.BigDecimal("-4.421399"));
 
-        when(incidentService.createIncident(org.mockito.ArgumentMatchers.any(CreateIncidentRequest.class)))
+        when(incidentService.createIncident(org.mockito.ArgumentMatchers.any(CreateIncidentRequest.class), eq(1)))
                 .thenReturn(dto);
 
-        mockMvc.perform(post("/api/incidents")
+        mockMvc.perform(post("/api/incidents").with(citizenToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -136,7 +141,7 @@ class IncidentControllerTest {
     @Test
     @DisplayName("POST /api/incidents debe rechazar título vacío")
     void testCreateIncidentWithBlankTitle() throws Exception {
-        mockMvc.perform(post("/api/incidents")
+        mockMvc.perform(post("/api/incidents").with(citizenToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -152,7 +157,7 @@ class IncidentControllerTest {
     @Test
     @DisplayName("POST /api/incidents debe rechazar una incidencia sin coordenadas (RF04)")
     void testCreateIncidentWithoutCoordinates() throws Exception {
-        mockMvc.perform(post("/api/incidents")
+        mockMvc.perform(post("/api/incidents").with(citizenToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -166,7 +171,7 @@ class IncidentControllerTest {
     @Test
     @DisplayName("POST /api/incidents debe rechazar coordenadas fuera de rango (RF04)")
     void testCreateIncidentWithOutOfRangeCoordinates() throws Exception {
-        mockMvc.perform(post("/api/incidents")
+        mockMvc.perform(post("/api/incidents").with(citizenToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -178,7 +183,7 @@ class IncidentControllerTest {
                                 """))
                 .andExpect(status().isBadRequest());
 
-        mockMvc.perform(post("/api/incidents")
+        mockMvc.perform(post("/api/incidents").with(citizenToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -189,5 +194,26 @@ class IncidentControllerTest {
                                 }
                                 """))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("POST /api/incidents sin token debe devolver 401")
+    void testCreateIncidentWithoutToken() throws Exception {
+        mockMvc.perform(post("/api/incidents")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "titulo": "Bache",
+                                  "descripcion": "Hay un bache.",
+                                  "latitud": 36.72,
+                                  "longitud": -4.42
+                                }
+                                """))
+                .andExpect(status().isUnauthorized());
+    }
+
+    /** Token simulado de un ciudadano con id 1 (sujeto del JWT). */
+    private static org.springframework.test.web.servlet.request.RequestPostProcessor citizenToken() {
+        return jwt().jwt(token -> token.subject("1").claim(SecurityConfig.ROLE_CLAIM, "CITIZEN"));
     }
 }
