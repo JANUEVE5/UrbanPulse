@@ -206,8 +206,8 @@ backend/src/main/resources/
 └── data.sql      # Datos de prueba
 
 frontend/src/
-├── app/          # Pantallas (rutas de Expo Router)
-├── components/   # Componentes reutilizables
+├── app/          # Pantallas (rutas de Expo Router); _layout.tsx monta AppShell
+├── components/   # Componentes reutilizables (app-shell y sidebar: estructura con barra lateral)
 ├── constants/    # Tema y constantes
 ├── hooks/        # Hooks
 └── services/     # Llamadas HTTP a la API (nunca fetch dentro de componentes)

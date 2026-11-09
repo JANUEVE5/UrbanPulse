@@ -2,7 +2,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,7 +13,8 @@ import { CreateIncidentForm } from '@/components/create-incident-form';
 import IncidentMapView from '@/components/IncidentMapView';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Spacing, TopTabInset } from '@/constants/theme';
+import { Colors, FloatingMenuInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { useIsWideLayout } from '@/hooks/use-layout';
 import { useTheme } from '@/hooks/use-theme';
 import {
   getIncidentById,
@@ -29,7 +29,8 @@ export default function IncidentsScreen() {
 
   const insets = useSafeAreaInsets();
   const theme = useTheme();
-  const isDark = theme.background === '#000000';
+  const isDark = theme.background === Colors.dark.background;
+  const isWide = useIsWideLayout();
 
   // Estados para la lista
   const [incidents, setIncidents] = useState<Incident[]>([]);
@@ -97,24 +98,13 @@ export default function IncidentsScreen() {
     await fetchIncidents();
   };
 
-  const contentPlatformStyle = Platform.select({
-    android: {
-      paddingTop: insets.top + Spacing.two,
-      paddingLeft: insets.left + Spacing.two,
-      paddingRight: insets.right + Spacing.two,
-      paddingBottom: insets.bottom + BottomTabInset + Spacing.three,
-    },
-    web: {
-      paddingTop: TopTabInset + Spacing.three,
-      paddingBottom: BottomTabInset + Spacing.six,
-      paddingHorizontal: Spacing.three,
-    },
-    default: {
-      paddingTop: insets.top + Spacing.two,
-      paddingBottom: insets.bottom + BottomTabInset + Spacing.three,
-      paddingHorizontal: Spacing.three,
-    },
-  });
+  // En pantallas estrechas se deja sitio al botón de menú flotante (arriba a la izquierda)
+  const contentPlatformStyle = {
+    paddingTop: isWide ? Spacing.four : insets.top + FloatingMenuInset,
+    paddingBottom: insets.bottom + Spacing.five,
+    paddingLeft: insets.left + Spacing.three,
+    paddingRight: insets.right + Spacing.three,
+  };
 
   return (
     <ScrollView
