@@ -2,18 +2,19 @@
 -- SCRIPT DE DATOS DE PRUEBA (MOCK DATA) - URBANPULSE
 -- ============================================================================
 
--- 1. Usuarios del sistema (10 usuarios)
-INSERT INTO "User" (nombre, correo, contraseña) VALUES
-    ('Carlos Morales', 'carlos.morales@urbanpulse.es', '$2a$10$7EqJtq98hPqEX7fNZaFWoOeiBCEe8wG99e.hQ1y35PjJmsQ94aN3G'),
-    ('Lucía Navarro', 'lucia.navarro@urbanpulse.es', '$2a$10$7EqJtq98hPqEX7fNZaFWoOeiBCEe8wG99e.hQ1y35PjJmsQ94aN3G'),
-    ('Alejandro Domínguez', 'alejandro.dominguez@urbanpulse.es', '$2a$10$7EqJtq98hPqEX7fNZaFWoOeiBCEe8wG99e.hQ1y35PjJmsQ94aN3G'),
-    ('Marta Castillo', 'marta.castillo@urbanpulse.es', '$2a$10$7EqJtq98hPqEX7fNZaFWoOeiBCEe8wG99e.hQ1y35PjJmsQ94aN3G'),
-    ('Javier Ruiz', 'javier.ruiz@urbanpulse.es', '$2a$10$7EqJtq98hPqEX7fNZaFWoOeiBCEe8wG99e.hQ1y35PjJmsQ94aN3G'),
-    ('Elena Romero', 'elena.romero@urbanpulse.es', '$2a$10$7EqJtq98hPqEX7fNZaFWoOeiBCEe8wG99e.hQ1y35PjJmsQ94aN3G'),
-    ('David Serrano', 'david.serrano@urbanpulse.es', '$2a$10$7EqJtq98hPqEX7fNZaFWoOeiBCEe8wG99e.hQ1y35PjJmsQ94aN3G'),
-    ('Carmen Gil', 'carmen.gil@urbanpulse.es', '$2a$10$7EqJtq98hPqEX7fNZaFWoOeiBCEe8wG99e.hQ1y35PjJmsQ94aN3G'),
-    ('Pablo Vázquez', 'pablo.vazquez@urbanpulse.es', '$2a$10$7EqJtq98hPqEX7fNZaFWoOeiBCEe8wG99e.hQ1y35PjJmsQ94aN3G'),
-    ('Sofía Delgado', 'sofia.delgado@urbanpulse.es', '$2a$10$7EqJtq98hPqEX7fNZaFWoOeiBCEe8wG99e.hQ1y35PjJmsQ94aN3G');
+-- 1. Usuarios del sistema (10 usuarios). Contraseña de todos (solo desarrollo): urbanpulse-dev
+--    Roles: 1 administrador, 2 operadores, 2 técnicos, 1 analista y 4 ciudadanos.
+INSERT INTO "User" (nombre, correo, contraseña, rol) VALUES
+    ('Carlos Morales', 'carlos.morales@urbanpulse.es', '$2a$10$JsXBwaVhn78a/3X.BYgmyus4OUsZOFpZ0l/SWAMU.OuwF5QSU6baK', 'ADMIN'),
+    ('Lucía Navarro', 'lucia.navarro@urbanpulse.es', '$2a$10$JsXBwaVhn78a/3X.BYgmyus4OUsZOFpZ0l/SWAMU.OuwF5QSU6baK', 'OPERATOR'),
+    ('Alejandro Domínguez', 'alejandro.dominguez@urbanpulse.es', '$2a$10$JsXBwaVhn78a/3X.BYgmyus4OUsZOFpZ0l/SWAMU.OuwF5QSU6baK', 'OPERATOR'),
+    ('Marta Castillo', 'marta.castillo@urbanpulse.es', '$2a$10$JsXBwaVhn78a/3X.BYgmyus4OUsZOFpZ0l/SWAMU.OuwF5QSU6baK', 'TECHNICIAN'),
+    ('Javier Ruiz', 'javier.ruiz@urbanpulse.es', '$2a$10$JsXBwaVhn78a/3X.BYgmyus4OUsZOFpZ0l/SWAMU.OuwF5QSU6baK', 'TECHNICIAN'),
+    ('Elena Romero', 'elena.romero@urbanpulse.es', '$2a$10$JsXBwaVhn78a/3X.BYgmyus4OUsZOFpZ0l/SWAMU.OuwF5QSU6baK', 'ANALYST'),
+    ('David Serrano', 'david.serrano@urbanpulse.es', '$2a$10$JsXBwaVhn78a/3X.BYgmyus4OUsZOFpZ0l/SWAMU.OuwF5QSU6baK', 'CITIZEN'),
+    ('Carmen Gil', 'carmen.gil@urbanpulse.es', '$2a$10$JsXBwaVhn78a/3X.BYgmyus4OUsZOFpZ0l/SWAMU.OuwF5QSU6baK', 'CITIZEN'),
+    ('Pablo Vázquez', 'pablo.vazquez@urbanpulse.es', '$2a$10$JsXBwaVhn78a/3X.BYgmyus4OUsZOFpZ0l/SWAMU.OuwF5QSU6baK', 'CITIZEN'),
+    ('Sofía Delgado', 'sofia.delgado@urbanpulse.es', '$2a$10$JsXBwaVhn78a/3X.BYgmyus4OUsZOFpZ0l/SWAMU.OuwF5QSU6baK', 'CITIZEN');
 
 -- 2. Activos urbanos (15 activos)
 INSERT INTO "UrbanAsset" (tipo) VALUES

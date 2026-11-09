@@ -9,6 +9,15 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ### Added
 
+- RF01/RF02 (frontend): pantallas de iniciar sesión y crear cuenta; la sesión se guarda (almacén cifrado en
+  móvil, `localStorage` en web) y se restaura al abrir la app. Crear una incidencia sin sesión lleva al login y
+  después abre el formulario. La barra lateral muestra el usuario, su rol y «Cerrar sesión», y la sección
+  Administración solo para `ADMIN`.
+- Cliente HTTP común (`apiClient.ts`) que añade el token a las peticiones y traduce los errores a mensajes claros.
+- RF01/RF02 (backend): autenticación con Spring Security y JWT. `POST /api/auth/register`, `POST /api/auth/login`
+  y `GET /api/auth/me`. Contraseñas con BCrypt y roles `CITIZEN`, `OPERATOR`, `TECHNICIAN`, `ADMIN` y `ANALYST`.
+- Usuarios de prueba con roles en `data.sql` (contraseña de desarrollo `urbanpulse-dev`) y variables
+  `JWT_SECRET` y `JWT_EXPIRATION_MINUTES`.
 - RF08: vista principal de mapa con un marcador por incidencia. El primer clic en un marcador muestra una
   tarjeta con el título, la calle y el estado; el clic en la tarjeta abre el detalle (igual en móvil y web) (#18).
 - Botón para cambiar entre mapa y lista (arriba a la derecha) y botón flotante para crear incidencias
@@ -36,6 +45,15 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ### Changed
 
+- Crear incidencias exige estar autenticado; el creador es el usuario del token (antes, el primer usuario
+  de la base de datos). Consultar incidencias sigue siendo público.
+- `GET /api/users` solo para `ADMIN` y sin exponer la entidad JPA (devuelve `UserDTO`).
+- ADR-009 pasa a `Accepted`.
+- La configuración del backend se lee de variables de entorno (`${VARIABLE:valor-por-defecto}` en
+  `application.properties`), con valores por defecto solo para desarrollo.
+- CORS se configura en un único sitio (`WebConfig`) con los orígenes de `CORS_ALLOWED_ORIGINS`; se eliminan
+  los `@CrossOrigin("*")` de los controllers.
+- Los logs de SQL (`spring.jpa.show-sql`) se desactivan por defecto y se activan con `SHOW_SQL=true`.
 - Frontend actualizado a **Expo SDK 58** (React Native 0.88, React 19.3, Expo Router 58, react-native-maps 1.29)
   para poder probar la app con la versión actual de Expo Go. Requiere **Node.js 22.13 o superior**; la CI pasa a
   Node 22.
@@ -43,11 +61,6 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
   esos tokens en lugar de colores escritos a mano.
 - La app usa siempre el tema claro (se elimina el modo oscuro): el logo, mitad azul, no se distinguía sobre
   fondos oscuros.
-- La configuración del backend se lee de variables de entorno (`${VARIABLE:valor-por-defecto}` en
-  `application.properties`), con valores por defecto solo para desarrollo.
-- CORS se configura en un único sitio (`WebConfig`) con los orígenes de `CORS_ALLOWED_ORIGINS`; se eliminan
-  los `@CrossOrigin("*")` de los controllers.
-- Los logs de SQL (`spring.jpa.show-sql`) se desactivan por defecto y se activan con `SHOW_SQL=true`.
 - ADR-010 pasa a `Accepted`.
 - El detalle ya no deduce la posición a partir del nombre de la calle: usa las coordenadas de la API.
 - `IncidentMapView` migrado a TypeScript; `npx tsc --noEmit` vuelve a pasar en el frontend.

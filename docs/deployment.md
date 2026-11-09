@@ -81,6 +81,8 @@ La configuración **no se incluye ni en el código ni en la imagen**. Se inyecta
 | `SERVER_PORT` | Puerto en el que escucha la API. | No |
 | `CORS_ALLOWED_ORIGINS` | Orígenes web permitidos (CORS), separados por comas. En producción, solo la URL real de la app web. | No |
 | `SHOW_SQL` | Mostrar las consultas SQL en los logs. En producción, `false`. | No |
+| `JWT_SECRET` | Clave de firma de los tokens (mínimo 32 caracteres, aleatoria). Si cambia, todas las sesiones caducan. | **Sí** |
+| `JWT_EXPIRATION_MINUTES` | Minutos de validez de cada token. | No |
 | `EXPO_PUBLIC_API_URL` | URL pública de la API para la app (se fija en tiempo de build). | No |
 
 La referencia completa está en [`.env.example`](../.env.example). Los secretos de CI van en

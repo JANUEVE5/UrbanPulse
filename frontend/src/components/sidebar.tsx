@@ -3,7 +3,9 @@ import React from 'react';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { ROLE_LABELS } from '@/constants/roles';
+import { Brand, Spacing } from '@/constants/theme';
+import { useAuth } from '@/context/auth-context';
 import { useTheme } from '@/hooks/use-theme';
 
 interface NavItem {
@@ -14,8 +16,6 @@ interface NavItem {
 /** Secciones disponibles hoy. */
 const NAV_ITEMS: NavItem[] = [{ label: 'Incidencias', href: '/incidents' }];
 
-/** Secciones previstas: se activarán con la gestión de usuarios y roles (RF01, RF02). */
-const UPCOMING_ITEMS = ['Perfil', 'Ajustes', 'Administración'];
 
 interface SidebarProps {
   /** Se llama al elegir una sección (en móvil, para cerrar el panel). */
@@ -26,6 +26,19 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   const theme = useTheme();
   const pathname = usePathname();
   const router = useRouter();
+  const { status, user, logout } = useAuth();
+
+  const go = (href: '/login' | '/register') => {
+    router.push(href);
+    onNavigate?.();
+  };
+
+  // Secciones previstas (aún sin contenido): Perfil con sesión iniciada y Administración solo para ADMIN (RF02)
+  const upcomingItems = [
+    ...(status === 'signedIn' ? ['Perfil'] : []),
+    'Ajustes',
+    ...(user?.rol === 'ADMIN' ? ['Administración'] : []),
+  ];
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background, borderRightColor: theme.border }]}>
@@ -72,7 +85,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         <ThemedText type="small" themeColor="textSecondary" style={styles.sectionTitle}>
           Próximamente
         </ThemedText>
-        {UPCOMING_ITEMS.map((label) => (
+        {upcomingItems.map((label) => (
           <View key={label} style={styles.item} accessibilityState={{ disabled: true }}>
             <View style={styles.itemIndicator} />
             <ThemedText themeColor="textSecondary" style={[styles.itemLabel, styles.itemDisabled]}>
@@ -81,8 +94,68 @@ export function Sidebar({ onNavigate }: SidebarProps) {
           </View>
         ))}
       </View>
+
+      {/* Sesión: abajo del todo */}
+      <View style={[styles.account, { borderTopColor: theme.border }]}>
+        {status === 'signedIn' && user ? (
+          <>
+            <View style={styles.userRow}>
+              <View style={[styles.avatar, { backgroundColor: theme.primary }]}>
+                <ThemedText style={styles.avatarText}>{initials(user.nombre)}</ThemedText>
+              </View>
+              <View style={styles.userText}>
+                <ThemedText type="smallBold" numberOfLines={1}>
+                  {user.nombre}
+                </ThemedText>
+                <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+                  {ROLE_LABELS[user.rol]}
+                </ThemedText>
+              </View>
+            </View>
+            <Pressable
+              onPress={() => {
+                void logout();
+                onNavigate?.();
+              }}
+              accessibilityRole="button"
+              style={({ pressed, hovered }) => [
+                styles.secondaryButton,
+                { borderColor: theme.border },
+                (hovered || pressed) && { backgroundColor: theme.backgroundElement },
+              ]}>
+              <ThemedText type="smallBold">Cerrar sesión</ThemedText>
+            </Pressable>
+          </>
+        ) : status === 'signedOut' ? (
+          <>
+            <Pressable
+              onPress={() => go('/login')}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.primaryButton, pressed && { opacity: 0.8 }]}>
+              <ThemedText type="smallBold" style={{ color: Brand.white }}>
+                Iniciar sesión
+              </ThemedText>
+            </Pressable>
+            <Pressable onPress={() => go('/register')} accessibilityRole="link" style={styles.linkButton}>
+              <ThemedText type="smallBold" style={{ color: theme.primary }}>
+                Crear cuenta
+              </ThemedText>
+            </Pressable>
+          </>
+        ) : null}
+      </View>
     </View>
   );
+}
+
+/** Iniciales para el avatar: "Lucía Navarro" → "LN". */
+function initials(nombre: string) {
+  return nombre
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('');
 }
 
 const styles = StyleSheet.create({
@@ -137,6 +210,52 @@ const styles = StyleSheet.create({
   },
   itemDisabled: {
     opacity: 0.7,
+  },
+  account: {
+    marginTop: 'auto',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: Spacing.three,
+    paddingBottom: Spacing.four,
+    gap: Spacing.two,
+  },
+  userRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.one,
+  },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    color: Brand.white,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  userText: {
+    flex: 1,
+  },
+  primaryButton: {
+    minHeight: 40,
+    borderRadius: 20,
+    backgroundColor: Brand.blue,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryButton: {
+    minHeight: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  linkButton: {
+    alignItems: 'center',
+    paddingVertical: Spacing.one,
   },
   divider: {
     height: StyleSheet.hairlineWidth,

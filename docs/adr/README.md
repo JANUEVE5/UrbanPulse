@@ -64,7 +64,7 @@ Utilizar Redis mediante Cache-Aside.
 | [006](006-esquema-bd-explicito-sql.md) | Esquema de base de datos explícito en SQL, sin DDL automático | Accepted | RF12, RF18 |
 | [007](007-configuracion-por-entorno-twelve-factor.md) | Configuración por variables de entorno y servicios de apoyo con Docker Compose | Accepted | Twelve-Factor |
 | [008](008-ciclo-vida-maquina-estados.md) | Ciclo de vida de la incidencia como máquina de estados con historial inmutable | Proposed | RF12, RF18 |
-| [009](009-autenticacion-autorizacion-jwt.md) | Autenticación con Spring Security y JWT, y autorización por roles | Proposed | RF01, RF02 |
+| [009](009-autenticacion-autorizacion-jwt.md) | Autenticación con Spring Security y JWT, y autorización por roles | Accepted | RF01, RF02 |
 | [010](010-representacion-localizacion.md) | Representación de la localización como latitud y longitud numéricas | Accepted | RF04, RF08 |
 | [011](011-convenciones-api-rest.md) | Convenciones de la API REST: DTOs, paginación y formato de errores | Proposed | RF06, RF07 |
 | [012](012-despliegue-contenedores.md) | Despliegue del backend como imagen de contenedor versionada | Proposed | Twelve-Factor |

@@ -92,7 +92,7 @@ flowchart TB
 
 | Contenedor | Tecnología | Responsabilidad | Estado |
 |---|---|---|---|
-| App cliente | Expo SDK 58, React Native 0.88, Expo Router, react-native-maps, expo-location | Vista principal de mapa con las incidencias (tarjeta al pulsar un marcador y detalle al pulsar la tarjeta), vista de lista, registro y detalle, con barra lateral de navegación (fija en escritorio, desplegable en móvil). | 🚧 |
+| App cliente | Expo SDK 58, React Native 0.88, Expo Router, react-native-maps, expo-location | Vista principal de mapa con las incidencias (tarjeta al pulsar un marcador y detalle al pulsar la tarjeta), vista de lista, registro y detalle, inicio de sesión y creación de cuenta, con barra lateral de navegación (fija en escritorio, desplegable en móvil) que muestra el usuario y las secciones según su rol. | 🚧 |
 | API REST | Spring Boot 4, Spring MVC, Spring Data JPA, Maven | Punto de entrada único, reglas de negocio y ciclo de vida. | 🚧 |
 | Base de datos | PostgreSQL 15 | Persistencia del dominio y del historial de cambios de estado. | ✅ |
 | Object Storage | S3 / MinIO | Almacenar evidencias binarias fuera de la base de datos relacional. | 📋 |
@@ -112,10 +112,13 @@ flowchart LR
     subgraph api["API REST (Spring Boot)"]
         direction LR
         subgraph web["controller"]
+            ac["AuthController<br/><small>/api/auth</small>"]
             ic["IncidentController<br/><small>/api/incidents</small>"]
             uc["AppUserController<br/><small>/api/users</small>"]
         end
         subgraph svc["service"]
+            as["AuthService"]
+            ts["TokenService<br/><small>emite JWT</small>"]
             is["IncidentService"]
         end
         subgraph repo["repository"]
@@ -125,12 +128,16 @@ flowchart LR
             ar["UrbanAssetRepository"]
         end
         dto["dto<br/><small>IncidentDTO · CreateIncidentRequest<br/>StatusChangeDTO</small>"]
+        sec["config · SecurityConfig<br/><small>Spring Security: valida JWT,<br/>401 / 403 por rol</small>"]
         cfg["config<br/><small>WebConfig (CORS)</small>"]
     end
 
     db[("PostgreSQL")]
 
-    client --> ic & uc
+    client -- "Authorization: Bearer JWT" --> sec
+    sec --> ac & ic & uc
+    ac --> as
+    as --> ts & ur
     ic --> is
     is --> ir & sr & ur
     uc --> ur
@@ -140,12 +147,43 @@ flowchart LR
 
 ### API expuesta actualmente
 
-| Método | Ruta | Descripción | Requisito |
-|---|---|---|---|
-| `GET` | `/api/incidents` | Listado de incidencias. | RF06 / RF07 (mínimo) |
-| `GET` | `/api/incidents/{id}` | Detalle con su historial de cambios de estado. | RF06 |
-| `POST` | `/api/incidents` | Registro de una incidencia (título, descripción, categoría opcional, latitud y longitud). | RF03, RF04 |
-| `GET` | `/api/users` | Listado de usuarios. | RF01 (provisional) |
+| Método | Ruta | Acceso | Descripción | Requisito |
+|---|---|---|---|---|
+| `POST` | `/api/auth/register` | Público | Crea una cuenta de ciudadano y devuelve su token. | RF01 |
+| `POST` | `/api/auth/login` | Público | Inicia sesión y devuelve un JWT. | RF01 |
+| `GET` | `/api/auth/me` | Autenticado | Datos y rol del usuario del token. | RF01 |
+| `GET` | `/api/incidents` | Público | Listado de incidencias. | RF06 / RF07 (mínimo) |
+| `GET` | `/api/incidents/{id}` | Público | Detalle con su historial de cambios de estado. | RF06 |
+| `POST` | `/api/incidents` | Autenticado | Registro de una incidencia a nombre del usuario del token. | RF03, RF04 |
+| `GET` | `/api/users` | `ADMIN` | Listado de usuarios con su rol (sin contraseñas). | RF02 |
+
+### Autenticación y autorización ([ADR-009](adr/009-autenticacion-autorizacion-jwt.md))
+
+```mermaid
+sequenceDiagram
+    participant App as App cliente
+    participant Sec as Spring Security
+    participant API as Controllers
+    App->>API: POST /api/auth/login (correo, contraseña)
+    API-->>App: JWT firmado (sub = id, rol) + datos del usuario
+    App->>Sec: POST /api/incidents · Authorization: Bearer JWT
+    Sec->>Sec: valida firma y caducidad; rol → ROLE_<rol>
+    alt token válido y rol permitido
+        Sec->>API: petición autenticada
+        API-->>App: 201 Created
+    else sin token o token inválido
+        Sec-->>App: 401
+    else rol sin permiso
+        Sec-->>App: 403
+    end
+```
+
+- La API no guarda sesiones: cada petición lleva su token (Twelve-Factor, factor VI).
+- Los tokens se firman con HMAC-SHA256 y la clave `JWT_SECRET`; caducan a los `JWT_EXPIRATION_MINUTES`.
+- Las reglas de acceso están en `SecurityConfig` y, por método, con `@PreAuthorize("hasRole('...')")`.
+- En la app, `AuthProvider` (`src/context/auth-context.tsx`) guarda el token (almacén cifrado en móvil,
+  `localStorage` en web), lo añade a cada petición desde `src/services/apiClient.ts` y cierra la sesión si la API
+  responde 401. Crear una incidencia sin sesión lleva al inicio de sesión.
 
 Cuando la API se estabilice, el contrato se publicará en OpenAPI en `docs/api/openapi.yml`.
 
@@ -168,7 +206,11 @@ classDiagram
         prioridad
         createdAt
     }
-    class User
+    class User {
+        nombre
+        correo
+        rol
+    }
     class StatusChange {
         transicion
         motivo
@@ -199,7 +241,7 @@ classDiagram
 | Entidad | Responsabilidad | Estado |
 |---|---|---|
 | `Incident` | Reporte central: descripción, categoría, localización, prioridad, estado y marcas temporales. | 🚧 |
-| `User` (`AppUser`) | Ciudadano o profesional que crea, consulta o modifica según sus permisos. | 🚧 (sin roles) |
+| `User` (`AppUser`) | Ciudadano o profesional que crea, consulta o modifica según sus permisos. Rol: `CITIZEN`, `OPERATOR`, `TECHNICIAN`, `ADMIN` o `ANALYST`; contraseña con BCrypt. | ✅ |
 | `StatusChange` | Transición auditable con actor, instante, motivo y datos asociados. | 🚧 |
 | `Attachment` | Evidencia almacenada fuera de la BD relacional y referenciada por metadatos. | 🚧 (solo nombre) |
 | `UrbanAsset` | Elemento físico (semáforo, contenedor, parada…) con geometría, fuente y confianza. | 🚧 (solo tipo) |
@@ -270,7 +312,7 @@ El registro completo está en [`docs/adr/`](adr/README.md).
 | [006](adr/006-esquema-bd-explicito-sql.md) | Esquema de base de datos explícito en SQL | Accepted |
 | [007](adr/007-configuracion-por-entorno-twelve-factor.md) | Configuración por variables de entorno y Docker Compose | Accepted |
 | [008](adr/008-ciclo-vida-maquina-estados.md) | Ciclo de vida como máquina de estados | Proposed |
-| [009](adr/009-autenticacion-autorizacion-jwt.md) | Autenticación con JWT y roles | Proposed |
+| [009](adr/009-autenticacion-autorizacion-jwt.md) | Autenticación con JWT y roles | Accepted |
 | [010](adr/010-representacion-localizacion.md) | Localización como latitud y longitud numéricas | Accepted |
 | [011](adr/011-convenciones-api-rest.md) | Convenciones de la API REST | Proposed |
 | [012](adr/012-despliegue-contenedores.md) | Despliegue como imagen de contenedor | Proposed |

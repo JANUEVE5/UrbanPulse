@@ -55,11 +55,12 @@ public class IncidentServiceImpl implements IncidentService {
 
     @Override
     @Transactional
-    public IncidentDTO createIncident(CreateIncidentRequest request) {
-        AppUser creator = appUserRepository.findFirstByOrderByIdAsc()
+    public IncidentDTO createIncident(CreateIncidentRequest request, Integer creatorId) {
+        // El creador es el usuario del token (RF01); si ya no existe, el token no es válido
+        AppUser creator = appUserRepository.findById(creatorId)
                 .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.CONFLICT,
-                        "No se puede registrar una incidencia porque no hay usuarios registrados."
+                        HttpStatus.UNAUTHORIZED,
+                        "El usuario autenticado ya no existe."
                 ));
 
         String title = request.getTitulo().trim();

@@ -6,6 +6,8 @@ import jakarta.validation.Valid;
 import com.example.urbanpulse.service.IncidentService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -38,7 +40,10 @@ public class IncidentController {
     }
 
     @PostMapping
-    public ResponseEntity<IncidentDTO> createIncident(@Valid @RequestBody CreateIncidentRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(incidentService.createIncident(request));
+    public ResponseEntity<IncidentDTO> createIncident(@Valid @RequestBody CreateIncidentRequest request,
+                                                      @AuthenticationPrincipal Jwt jwt) {
+        // Requiere token (SecurityConfig): el creador es el usuario autenticado
+        Integer creatorId = Integer.valueOf(jwt.getSubject());
+        return ResponseEntity.status(HttpStatus.CREATED).body(incidentService.createIncident(request, creatorId));
     }
 }

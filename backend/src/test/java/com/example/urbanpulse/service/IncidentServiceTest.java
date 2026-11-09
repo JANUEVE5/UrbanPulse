@@ -129,7 +129,7 @@ class IncidentServiceTest {
         request.setLatitud(new BigDecimal("36.721274"));
         request.setLongitud(new BigDecimal("-4.421399"));
 
-        when(appUserRepository.findFirstByOrderByIdAsc()).thenReturn(Optional.of(testUser));
+        when(appUserRepository.findById(1)).thenReturn(Optional.of(testUser));
         when(incidentRepository.save(any(Incident.class))).thenAnswer(invocation -> {
             Incident saved = invocation.getArgument(0);
             saved.setId(2);
@@ -137,7 +137,7 @@ class IncidentServiceTest {
             return saved;
         });
 
-        IncidentDTO result = incidentService.createIncident(request);
+        IncidentDTO result = incidentService.createIncident(request, 1);
 
         assertEquals(2, result.getId());
         assertEquals("Bache en la calzada", result.getTitulo());
@@ -160,14 +160,14 @@ class IncidentServiceTest {
         request.setLatitud(new BigDecimal("36.7"));
         request.setLongitud(new BigDecimal("-4.4"));
 
-        when(appUserRepository.findFirstByOrderByIdAsc()).thenReturn(Optional.of(testUser));
+        when(appUserRepository.findById(1)).thenReturn(Optional.of(testUser));
         when(incidentRepository.save(any(Incident.class))).thenAnswer(invocation -> {
             Incident saved = invocation.getArgument(0);
             saved.setId(2);
             return saved;
         });
 
-        IncidentDTO result = incidentService.createIncident(request);
+        IncidentDTO result = incidentService.createIncident(request, 1);
 
         assertNull(result.getCategoria());
     }

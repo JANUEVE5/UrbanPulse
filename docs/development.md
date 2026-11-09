@@ -102,7 +102,36 @@ curl -i -X POST http://localhost:8080/api/incidents \
   -d '{"titulo":"Bache en la calzada","descripcion":"Hay un bache frente al número 12.","categoria":"Vía pública","latitud":36.721274,"longitud":-4.421399}'
 ```
 
-La respuesta esperada del `POST` es `201 Created` con los datos de la incidencia.
+Crear incidencias exige **iniciar sesión**. Primero se obtiene un token y luego se envía en la cabecera
+`Authorization`:
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"correo":"david.serrano@urbanpulse.es","contrasena":"urbanpulse-dev"}' | sed -E 's/.*"token":"([^"]+)".*/\1/')
+
+curl -i -X POST http://localhost:8080/api/incidents \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"titulo":"Bache en la calzada","descripcion":"Hay un bache frente al número 12.","categoria":"Vía pública","latitud":36.721274,"longitud":-4.421399}'
+```
+
+La respuesta esperada del `POST` es `201 Created`, con el usuario del token como creador. Sin token, `401`.
+
+### Usuarios de prueba
+
+`data.sql` crea estos usuarios en cada arranque. **Todos tienen la contraseña `urbanpulse-dev`** (solo para
+desarrollo local):
+
+| Correo | Rol |
+|---|---|
+| `carlos.morales@urbanpulse.es` | `ADMIN` |
+| `lucia.navarro@urbanpulse.es`, `alejandro.dominguez@urbanpulse.es` | `OPERATOR` |
+| `marta.castillo@urbanpulse.es`, `javier.ruiz@urbanpulse.es` | `TECHNICIAN` |
+| `elena.romero@urbanpulse.es` | `ANALYST` |
+| `david.serrano@urbanpulse.es`, `carmen.gil@urbanpulse.es`, `pablo.vazquez@urbanpulse.es`, `sofia.delgado@urbanpulse.es` | `CITIZEN` |
+
+También puedes crear una cuenta de ciudadano con `POST /api/auth/register`.
 
 ## 5. Ejecutar el frontend
 
@@ -117,6 +146,9 @@ En la consola de Expo:
 - **`w`** abre la versión web (`http://localhost:8081`). También funciona `npm run web`.
 - **`a`** abre el emulador de Android.
 - Escanea el **QR** con Expo Go para probar en un móvil de la misma red Wi-Fi.
+
+Para crear incidencias hay que **iniciar sesión** desde la barra lateral con uno de los usuarios de prueba
+(ver «Usuarios de prueba» más arriba) o creando una cuenta nueva.
 
 > Windows: si PowerShell bloquea la ejecución de scripts, ejecuta una vez
 > `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`.
@@ -188,6 +220,8 @@ Todas están documentadas en [`.env.example`](../.env.example).
 | `SERVER_PORT` | Backend | Puerto HTTP de la API (8080 por defecto). |
 | `CORS_ALLOWED_ORIGINS` | Backend | Orígenes web que pueden llamar a la API, separados por comas (por defecto `http://localhost:8081`, Expo web). Si abres la app web desde otra URL, añádela aquí. No afecta a Android/iOS. |
 | `SHOW_SQL` | Backend | `true` para ver en los logs las consultas SQL (por defecto `false`). |
+| `JWT_SECRET` | Backend | Clave para firmar los tokens (mínimo 32 caracteres). El valor por defecto solo sirve en local. |
+| `JWT_EXPIRATION_MINUTES` | Backend | Minutos de validez de cada token (por defecto 60). |
 | `EXPO_PUBLIC_API_URL` | Frontend | URL base de la API. Es pública: nunca pongas secretos en ella. |
 
 ## 9. Estructura del código

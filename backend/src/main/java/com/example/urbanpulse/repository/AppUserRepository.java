@@ -8,5 +8,8 @@ import java.util.Optional;
 
 @Repository
 public interface AppUserRepository extends JpaRepository<AppUser, Integer> {
-    Optional<AppUser> findFirstByOrderByIdAsc();
+
+    Optional<AppUser> findByCorreoIgnoreCase(String correo);
+
+    boolean existsByCorreoIgnoreCase(String correo);
 }
