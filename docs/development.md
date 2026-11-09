@@ -65,9 +65,10 @@ El esquema (`schema.sql`) y los datos de prueba (`data.sql`) se cargan solos al 
 
 ## 4. Ejecutar el backend
 
-Spring Boot lee la configuración de `backend/src/main/resources/application.properties`. Las variables de
-entorno con el mismo nombre (`SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_PASSWORD`…) **tienen prioridad**.
-Los valores por defecto coinciden con `.env.example`, así que con Docker Compose funciona sin más.
+Spring Boot lee la configuración de `backend/src/main/resources/application.properties`, donde cada valor
+que cambia entre entornos tiene la forma `${VARIABLE:valor-por-defecto}`. Si defines la variable de entorno
+(`SPRING_DATASOURCE_PASSWORD`, `CORS_ALLOWED_ORIGINS`…), **tiene prioridad**; si no, se usa el valor por
+defecto de desarrollo, que coincide con `.env.example`. Con Docker Compose funciona sin más.
 
 **Linux / macOS**
 
@@ -185,6 +186,8 @@ Todas están documentadas en [`.env.example`](../.env.example).
 | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT` | `compose.yaml` | Configuración del contenedor PostgreSQL. |
 | `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD` | Backend | Conexión a la base de datos. |
 | `SERVER_PORT` | Backend | Puerto HTTP de la API (8080 por defecto). |
+| `CORS_ALLOWED_ORIGINS` | Backend | Orígenes web que pueden llamar a la API, separados por comas (por defecto `http://localhost:8081`, Expo web). Si abres la app web desde otra URL, añádela aquí. No afecta a Android/iOS. |
+| `SHOW_SQL` | Backend | `true` para ver en los logs las consultas SQL (por defecto `false`). |
 | `EXPO_PUBLIC_API_URL` | Frontend | URL base de la API. Es pública: nunca pongas secretos en ella. |
 
 ## 9. Estructura del código
@@ -217,5 +220,6 @@ frontend/src/
 | `Connection refused` a `localhost:5432` | PostgreSQL no está arrancado. | `docker compose up -d` y `docker compose ps`. |
 | `password authentication failed` | Las credenciales de `.env` / `application.properties` no coinciden con las de la BD. | Alinea `POSTGRES_PASSWORD` y `SPRING_DATASOURCE_PASSWORD`. |
 | `Port 5432 is already allocated` | Ya hay un PostgreSQL local escuchando. | Páralo o cambia `POSTGRES_PORT` (y la URL de Spring). |
+| La app web muestra un error de CORS al llamar a la API | Abres la web desde un origen que no está en `CORS_ALLOWED_ORIGINS`. | Añade esa URL a `CORS_ALLOWED_ORIGINS` y reinicia el backend. |
 | `./mvnw: Permission denied` | El wrapper no tiene permisos de ejecución. | `chmod +x mvnw`. |
 | La app en el móvil no carga datos | El móvil no llega a `localhost`. | Define `EXPO_PUBLIC_API_URL` con la IP de tu equipo. |
