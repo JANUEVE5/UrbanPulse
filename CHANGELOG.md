@@ -36,6 +36,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ### Changed
 
+- Frontend actualizado a **Expo SDK 58** (React Native 0.88, React 19.3, Expo Router 58, react-native-maps 1.29)
+  para poder probar la app con la versión actual de Expo Go. Requiere **Node.js 22.13 o superior**; la CI pasa a
+  Node 22.
 - Paleta adaptada a los colores del logo (azul `#104F85` y naranja `#F5841B`); los botones de la app usan
   esos tokens en lugar de colores escritos a mano.
 - La app usa siempre el tema claro (se elimina el modo oscuro): el logo, mitad azul, no se distinguía sobre
