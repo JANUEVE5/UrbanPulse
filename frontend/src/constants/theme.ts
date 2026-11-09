@@ -1,7 +1,8 @@
 /**
- * Tokens visuales de UrbanPulse (modo claro y oscuro).
- * - primary: azul mar, color de marca y de los elementos activos.
- * - signal: naranja señal, reservado para las incidencias en el mapa.
+ * Tokens visuales de UrbanPulse, tomados del logo. La app usa solo tema claro: el logo es mitad azul
+ * y no se distingue sobre fondos oscuros, y el mapa ya es claro.
+ * - primary: azul del logo, color de marca y de los elementos activos.
+ * - signal: naranja del logo, para las incidencias en el mapa y la acción principal (crear).
  * - border: líneas y separadores.
  */
 
@@ -10,33 +11,26 @@ import '@/global.css';
 import { Platform } from 'react-native';
 
 export const Colors = {
-  light: {
-    text: '#1B2733',
-    background: '#FFFFFF',
-    backgroundElement: '#F3F6F8',
-    backgroundSelected: '#E2EDF4',
-    textSecondary: '#5B6875',
-    border: '#DCE3E8',
-    primary: '#0E5A8A',
-    onPrimary: '#FFFFFF',
-    signal: '#E8590C',
-    scrim: 'rgba(27, 39, 51, 0.45)',
-  },
-  dark: {
-    text: '#E8EEF2',
-    background: '#0F1A22',
-    backgroundElement: '#172632',
-    backgroundSelected: '#1F3A4D',
-    textSecondary: '#9AA9B5',
-    border: '#26394A',
-    primary: '#5BB0E6',
-    onPrimary: '#0F1A22',
-    signal: '#FF7A33',
-    scrim: 'rgba(0, 0, 0, 0.55)',
-  },
+  text: '#1B2733',
+  background: '#FFFFFF',
+  backgroundElement: '#F3F6F8',
+  backgroundSelected: '#E3ECF5',
+  textSecondary: '#5B6875',
+  border: '#DCE3E8',
+  primary: '#104F85',
+  onPrimary: '#FFFFFF',
+  signal: '#F5841B',
+  scrim: 'rgba(27, 39, 51, 0.45)',
 } as const;
 
-export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
+/** Colores del logo (botones y marcadores sobre el mapa). */
+export const Brand = {
+  blue: '#104F85',
+  orange: '#F5841B',
+  white: '#FFFFFF',
+} as const;
+
+export type ThemeColor = keyof typeof Colors;
 
 export const Fonts = Platform.select({
   ios: {

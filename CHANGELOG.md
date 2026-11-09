@@ -9,6 +9,12 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ### Added
 
+- RF08: vista principal de mapa con un marcador por incidencia. El primer clic en un marcador muestra una
+  tarjeta con el título, la calle y el estado; el clic en la tarjeta abre el detalle (igual en móvil y web) (#18).
+- Botón para cambiar entre mapa y lista (arriba a la derecha) y botón flotante para crear incidencias
+  (abajo a la derecha).
+- Logo de UrbanPulse: icono de la app, icono adaptativo de Android, splash, favicon y `logo.webp` en la barra
+  lateral.
 - Barra lateral de navegación: fija a la izquierda en pantallas anchas y desplegable con un botón de menú
   arriba a la izquierda en móvil. Incluye las secciones futuras Perfil, Ajustes y Administración (desactivadas).
 - Paleta propia de UrbanPulse (azul mar y naranja señal) en modo claro y oscuro.
@@ -30,6 +36,10 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ### Changed
 
+- Paleta adaptada a los colores del logo (azul `#104F85` y naranja `#F5841B`); los botones de la app usan
+  esos tokens en lugar de colores escritos a mano.
+- La app usa siempre el tema claro (se elimina el modo oscuro): el logo, mitad azul, no se distinguía sobre
+  fondos oscuros.
 - La configuración del backend se lee de variables de entorno (`${VARIABLE:valor-por-defecto}` en
   `application.properties`), con valores por defecto solo para desarrollo.
 - CORS se configura en un único sitio (`WebConfig`) con los orígenes de `CORS_ALLOWED_ORIGINS`; se eliminan

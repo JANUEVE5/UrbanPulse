@@ -1,6 +1,6 @@
 import { usePathname, useRouter } from 'expo-router';
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
@@ -30,9 +30,12 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   return (
     <View style={[styles.container, { backgroundColor: theme.background, borderRightColor: theme.border }]}>
       <View style={styles.brand}>
-        <View style={[styles.brandMark, { backgroundColor: theme.primary }]}>
-          <View style={[styles.brandPulse, { backgroundColor: theme.signal }]} />
-        </View>
+        <Image
+          source={require('@/assets/images/logo.webp')}
+          style={styles.brandLogo}
+          accessibilityIgnoresInvertColors
+          accessible={false}
+        />
         <ThemedText style={styles.brandName}>UrbanPulse</ThemedText>
       </View>
 
@@ -97,19 +100,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.two,
     marginBottom: Spacing.two,
   },
-  brandMark: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderBottomRightRadius: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-    transform: [{ rotate: '45deg' }],
-  },
-  brandPulse: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+  brandLogo: {
+    width: 36,
+    height: 36,
   },
   brandName: {
     fontSize: 20,
