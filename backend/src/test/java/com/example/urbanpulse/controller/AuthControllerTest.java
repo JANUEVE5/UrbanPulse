@@ -50,13 +50,13 @@ class AuthControllerTest {
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                { "correo": "lucia@urbanpulse.es", "contrasena": "urbanpulse-dev" }
+                                { "correo": "lucia@urbanpulse.es", "password": "urbanpulse-dev" }
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").value("token-de-prueba"))
                 .andExpect(jsonPath("$.tipo").value("Bearer"))
                 .andExpect(jsonPath("$.usuario.rol").value("OPERATOR"))
-                .andExpect(jsonPath("$.usuario.contrasena").doesNotExist());
+                .andExpect(jsonPath("$.usuario.password").doesNotExist());
     }
 
     @Test
@@ -68,7 +68,7 @@ class AuthControllerTest {
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                { "correo": "lucia@urbanpulse.es", "contrasena": "mala" }
+                                { "correo": "lucia@urbanpulse.es", "password": "mala" }
                                 """))
                 .andExpect(status().isUnauthorized());
     }
@@ -79,7 +79,7 @@ class AuthControllerTest {
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                { "contrasena": "urbanpulse-dev" }
+                                { "password": "urbanpulse-dev" }
                                 """))
                 .andExpect(status().isBadRequest());
         verifyNoInteractions(authService);
@@ -95,7 +95,7 @@ class AuthControllerTest {
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                { "nombre": "Ana Pérez", "correo": "ana@example.com", "contrasena": "segura-123" }
+                                { "nombre": "Ana Pérez", "correo": "ana@example.com", "password": "segura-123" }
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.usuario.rol").value("CITIZEN"));
@@ -107,7 +107,7 @@ class AuthControllerTest {
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                { "nombre": "Ana", "correo": "ana@example.com", "contrasena": "corta" }
+                                { "nombre": "Ana", "correo": "ana@example.com", "password": "corta" }
                                 """))
                 .andExpect(status().isBadRequest());
         verifyNoInteractions(authService);

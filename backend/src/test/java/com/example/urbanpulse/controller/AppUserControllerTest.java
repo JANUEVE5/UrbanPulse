@@ -55,6 +55,6 @@ class AppUserControllerTest {
         mockMvc.perform(get("/api/users").with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].rol").value("ADMIN"))
-                .andExpect(jsonPath("$[0].contrasena").doesNotExist());
+                .andExpect(jsonPath("$[0].password").doesNotExist());
     }
 }

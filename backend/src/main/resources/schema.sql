@@ -10,7 +10,7 @@ CREATE TABLE "User" (
                         id              INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
                         nombre          VARCHAR(100) NOT NULL,
                         correo          VARCHAR(150) NOT NULL UNIQUE,
-                        contraseña      VARCHAR(255) NOT NULL,
+                        password      VARCHAR(255) NOT NULL,
                         rol             VARCHAR(20)  NOT NULL DEFAULT 'CITIZEN'
                                         CHECK (rol IN ('CITIZEN', 'OPERATOR', 'TECHNICIAN', 'ADMIN', 'ANALYST'))
 );

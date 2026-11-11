@@ -25,7 +25,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
 
   const [nombre, setNombre] = useState('');
   const [correo, setCorreo] = useState('');
-  const [contrasena, setContrasena] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
 
@@ -33,11 +33,11 @@ export function AuthForm({ mode }: { mode: Mode }) {
 
   const handleSubmit = async () => {
     setError(null);
-    if ((isRegister && !nombre.trim()) || !correo.trim() || !contrasena) {
+    if ((isRegister && !nombre.trim()) || !correo.trim() || !password) {
       setError('Rellena todos los campos.');
       return;
     }
-    if (isRegister && contrasena.length < 8) {
+    if (isRegister && password.length < 8) {
       setError('La contraseña debe tener al menos 8 caracteres.');
       return;
     }
@@ -45,9 +45,9 @@ export function AuthForm({ mode }: { mode: Mode }) {
     setSending(true);
     try {
       if (isRegister) {
-        await register({ nombre: nombre.trim(), correo: correo.trim(), contrasena });
+        await register({ nombre: nombre.trim(), correo: correo.trim(), password });
       } else {
-        await login({ correo: correo.trim(), contrasena });
+        await login({ correo: correo.trim(), password });
       }
       router.replace(
         destino === 'crear' ? { pathname: '/incidents', params: { crear: '1' } } : '/incidents',
@@ -123,8 +123,8 @@ export function AuthForm({ mode }: { mode: Mode }) {
           <ThemedText type="smallBold">Contraseña</ThemedText>
           <TextInput
             accessibilityLabel="Contraseña"
-            value={contrasena}
-            onChangeText={setContrasena}
+            value={password}
+            onChangeText={setPassword}
             secureTextEntry
             autoComplete={isRegister ? 'new-password' : 'current-password'}
             maxLength={72}

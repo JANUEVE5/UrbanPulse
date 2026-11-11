@@ -19,7 +19,7 @@ export interface AuthResponse {
 
 export interface LoginInput {
   correo: string;
-  contrasena: string;
+  password: string;
 }
 
 export interface RegisterInput extends LoginInput {

@@ -104,8 +104,8 @@ class AuthServiceImplTest {
         assertEquals("ana@example.com", saved.getValue().getCorreo());
         assertEquals("Ana Pérez", saved.getValue().getNombre());
         assertEquals(Rol.CITIZEN, saved.getValue().getRol());
-        assertNotEquals("segura-123", saved.getValue().getContrasena());
-        assertTrue(passwordEncoder.matches("segura-123", saved.getValue().getContrasena()));
+        assertNotEquals("segura-123", saved.getValue().getPassword());
+        assertTrue(passwordEncoder.matches("segura-123", saved.getValue().getPassword()));
     }
 
     @Test

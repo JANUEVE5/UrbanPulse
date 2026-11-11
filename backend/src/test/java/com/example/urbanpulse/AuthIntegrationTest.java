@@ -46,7 +46,7 @@ class AuthIntegrationTest {
 
     private String login(String correo) throws IOException, InterruptedException {
         HttpResponse<String> response = send("POST", "/api/auth/login",
-                "{\"correo\":\"" + correo + "\",\"contrasena\":\"" + DEV_PASSWORD + "\"}", null);
+                "{\"correo\":\"" + correo + "\",\"password\":\"" + DEV_PASSWORD + "\"}", null);
         assertEquals(200, response.statusCode(), response.body());
         Matcher m = TOKEN.matcher(response.body());
         assertTrue(m.find(), "La respuesta de login no contiene token");
@@ -75,13 +75,13 @@ class AuthIntegrationTest {
     @DisplayName("Los errores conservan su código real (409, 400, 401) y no se convierten en 401")
     void errorStatusCodesArePreserved() throws Exception {
         String registro = "{\"nombre\":\"Prueba\",\"correo\":\"it-" + UUID.randomUUID()
-                + "@example.com\",\"contrasena\":\"segura-123\"}";
+                + "@example.com\",\"password\":\"segura-123\"}";
         assertEquals(201, send("POST", "/api/auth/register", registro, null).statusCode());
         assertEquals(409, send("POST", "/api/auth/register", registro, null).statusCode());
         assertEquals(400, send("POST", "/api/auth/register",
-                "{\"nombre\":\"x\",\"correo\":\"no-es-correo\",\"contrasena\":\"corta\"}", null).statusCode());
+                "{\"nombre\":\"x\",\"correo\":\"no-es-correo\",\"password\":\"corta\"}", null).statusCode());
         assertEquals(401, send("POST", "/api/auth/login",
-                "{\"correo\":\"lucia.navarro@urbanpulse.es\",\"contrasena\":\"mala\"}", null).statusCode());
+                "{\"correo\":\"lucia.navarro@urbanpulse.es\",\"password\":\"mala\"}", null).statusCode());
         assertEquals(404, send("GET", "/api/incidents/999999", null, null).statusCode());
     }
 }
