@@ -68,5 +68,6 @@ Utilizar Redis mediante Cache-Aside.
 | [010](010-representacion-localizacion.md) | Representación de la localización como latitud y longitud numéricas | Accepted | RF04, RF08 |
 | [011](011-convenciones-api-rest.md) | Convenciones de la API REST: DTOs, paginación y formato de errores | Proposed | RF06, RF07 |
 | [012](012-despliegue-contenedores.md) | Despliegue del backend como imagen de contenedor versionada | Proposed | Twelve-Factor |
+| [013](013-listado-de-incidencias-propias.md) | Limitar el mapa y el listado a las incidencias del usuario autenticado | Accepted | RF06 |
 
 Los ADR en estado `Proposed` están pendientes de que el equipo los revise y los acepte o rechace.

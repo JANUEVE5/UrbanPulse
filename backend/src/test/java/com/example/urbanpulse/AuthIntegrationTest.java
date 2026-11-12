@@ -15,6 +15,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -59,7 +60,13 @@ class AuthIntegrationTest {
         String admin = login("carlos.morales@urbanpulse.es");
         String citizen = login("david.serrano@urbanpulse.es");
 
-        assertEquals(200, send("GET", "/api/incidents", null, null).statusCode());
+        assertEquals(401, send("GET", "/api/incidents", null, null).statusCode());
+        HttpResponse<String> incidents = send("GET", "/api/incidents", null, citizen);
+        assertEquals(200, incidents.statusCode(), incidents.body());
+        assertTrue(incidents.body().contains("Papelera metálica desprendida"),
+                "El listado debe incluir incidencias creadas por David Serrano");
+        assertFalse(incidents.body().contains("Farola rota con cableado expuesto"),
+                "El listado no debe incluir incidencias de otros usuarios");
         assertEquals(401, send("GET", "/api/users", null, null).statusCode());
         assertEquals(403, send("GET", "/api/users", null, citizen).statusCode());
         assertEquals(200, send("GET", "/api/users", null, admin).statusCode());

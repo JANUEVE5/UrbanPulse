@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -28,7 +28,7 @@ import {
 export default function IncidentsScreen() {
   const router = useRouter();
   const searchParams = useLocalSearchParams<{ id?: string; vista?: string; crear?: string }>();
-  const { status: authStatus } = useAuth();
+  const { status: authStatus, user } = useAuth();
   const selectedId = searchParams.id ? Number(searchParams.id) : null;
   // Vista principal: mapa por defecto; ?vista=lista muestra el listado
   const showList = searchParams.vista === 'lista';
@@ -38,9 +38,19 @@ export default function IncidentsScreen() {
   const isWide = useIsWideLayout();
 
   // Estados para la lista
-  const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [incidentList, setIncidentList] = useState<{ userId: number; incidents: Incident[] } | null>(null);
   const [loadingList, setLoadingList] = useState<boolean>(true);
-  const [errorList, setErrorList] = useState<string | null>(null);
+  const [listError, setListError] = useState<{ userId: number; message: string } | null>(null);
+  const listRequestId = useRef(0);
+  const incidents =
+    incidentList && incidentList.userId === user?.id ? incidentList.incidents : [];
+  const errorList =
+    authStatus === 'signedOut'
+      ? 'Inicia sesión para consultar tus incidencias.'
+      : listError && listError.userId === user?.id
+        ? listError.message
+        : null;
+  const isLoadingList = authStatus === 'loading' || (authStatus === 'signedIn' && loadingList);
 
   // Estados para el detalle
   const [incidentDetail, setIncidentDetail] = useState<Incident | null>(null);
@@ -49,20 +59,29 @@ export default function IncidentsScreen() {
   const [creatingIncident, setCreatingIncident] = useState(false);
   const [creationSuccess, setCreationSuccess] = useState(false);
 
-  const fetchIncidents = async () => {
+  const fetchIncidents = useCallback(async () => {
+    if (authStatus !== 'signedIn' || user === null) return;
+    const requestId = ++listRequestId.current;
     setLoadingList(true);
-    setErrorList(null);
+    setListError(null);
     try {
       const data = await getIncidents();
-      setIncidents(data);
+      if (requestId === listRequestId.current) {
+        setIncidentList({ userId: user.id, incidents: data });
+      }
     } catch (err: any) {
-      setErrorList(err.message || 'No se pudieron cargar las incidencias.');
+      if (requestId === listRequestId.current) {
+        setListError({
+          userId: user.id,
+          message: err.message || 'No se pudieron cargar las incidencias.',
+        });
+      }
     } finally {
-      setLoadingList(false);
+      if (requestId === listRequestId.current) setLoadingList(false);
     }
-  };
+  }, [authStatus, user]);
 
-  const fetchDetail = async (id: number) => {
+  const fetchDetail = useCallback(async (id: number) => {
     setLoadingDetail(true);
     setErrorDetail(null);
     try {
@@ -73,16 +92,21 @@ export default function IncidentsScreen() {
     } finally {
       setLoadingDetail(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
+    if (authStatus === 'loading') return;
+    if (authStatus === 'signedOut') {
+      listRequestId.current += 1;
+      return;
+    }
     void Promise.resolve().then(() => {
       if (selectedId) {
         return fetchDetail(selectedId);
       }
       return fetchIncidents();
     });
-  }, [selectedId]);
+  }, [selectedId, authStatus, fetchDetail, fetchIncidents]);
 
   const handleSelectIncident = (id: number) => {
     router.push({
@@ -158,23 +182,27 @@ export default function IncidentsScreen() {
       <View style={[styles.mapScreen, { backgroundColor: theme.background }]}>
         <IncidentsMap incidents={mapIncidents} onOpenIncident={handleSelectIncident} />
 
-        {(loadingList || errorList || creationSuccess) && (
+        {(isLoadingList || errorList || creationSuccess) && (
           <View
             style={[styles.mapBanner, { top: insets.top + (isWide ? Spacing.three : FloatingMenuInset) }]}
             pointerEvents="box-none">
             <ThemedView type="background" style={[styles.mapBannerBox, { borderColor: theme.border }]}>
-              {loadingList ? (
+              {isLoadingList ? (
                 <ThemedText type="small">Cargando incidencias…</ThemedText>
               ) : errorList ? (
                 <>
                   <ThemedText type="small" style={styles.errorTitle}>
-                    No se pudieron cargar las incidencias.
+                    {authStatus === 'signedOut'
+                      ? 'Inicia sesión para consultar tus incidencias.'
+                      : 'No se pudieron cargar las incidencias.'}
                   </ThemedText>
-                  <Pressable onPress={fetchIncidents} accessibilityRole="button">
-                    <ThemedText type="smallBold" style={{ color: theme.primary }}>
-                      Reintentar
-                    </ThemedText>
-                  </Pressable>
+                  {authStatus !== 'signedOut' && (
+                    <Pressable onPress={fetchIncidents} accessibilityRole="button">
+                      <ThemedText type="smallBold" style={{ color: theme.primary }}>
+                        Reintentar
+                      </ThemedText>
+                    </Pressable>
+                  )}
                 </>
               ) : (
                 <ThemedText type="smallBold" style={styles.successText}>
@@ -228,12 +256,13 @@ export default function IncidentsScreen() {
             // =================== VISTA LISTADO ===================
             <IncidentListView
               incidents={incidents}
-              loading={loadingList}
+              loading={isLoadingList}
               error={errorList}
               onSelectIncident={handleSelectIncident}
               onRetry={fetchIncidents}
               onCreate={startCreating}
               creationSuccess={creationSuccess}
+              signedOut={authStatus === 'signedOut'}
             />
           )}
         </View>
@@ -278,6 +307,7 @@ interface ListViewProps {
   onRetry: () => void;
   onCreate: () => void;
   creationSuccess: boolean;
+  signedOut: boolean;
 }
 
 function IncidentListView({
@@ -288,6 +318,7 @@ function IncidentListView({
   onRetry,
   onCreate,
   creationSuccess,
+  signedOut,
 }: ListViewProps) {
   return (
     <View style={styles.wrapper}>
@@ -340,16 +371,18 @@ function IncidentListView({
       {!loading && error && (
         <ThemedView type="backgroundElement" style={styles.errorBox}>
           <ThemedText type="default" style={styles.errorTitle}>
-            ⚠️ Error de conexión
+            {signedOut ? 'Inicia sesión' : '⚠️ Error de conexión'}
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary" style={styles.errorText}>
             {error}
           </ThemedText>
-          <Pressable style={styles.retryButton} onPress={onRetry}>
-            <ThemedText type="smallBold" style={styles.retryButtonText}>
-              Reintentar
-            </ThemedText>
-          </Pressable>
+          {!signedOut && (
+            <Pressable style={styles.retryButton} onPress={onRetry}>
+              <ThemedText type="smallBold" style={styles.retryButtonText}>
+                Reintentar
+              </ThemedText>
+            </Pressable>
+          )}
         </ThemedView>
       )}
 

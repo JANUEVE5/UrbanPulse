@@ -92,10 +92,11 @@ cd backend
 .\mvnw.cmd spring-boot:run
 ```
 
-La API queda disponible en `http://localhost:8080/api`. Para comprobarla:
+La API queda disponible en `http://localhost:8080/api`. El mapa y el listado requieren iniciar sesión
+y solo muestran incidencias creadas por ese usuario. Para comprobar una consulta pública del detalle:
 
 ```bash
-curl http://localhost:8080/api/incidents
+curl http://localhost:8080/api/incidents/1
 
 curl -i -X POST http://localhost:8080/api/incidents \
   -H "Content-Type: application/json" \
@@ -117,6 +118,13 @@ curl -i -X POST http://localhost:8080/api/incidents \
 ```
 
 La respuesta esperada del `POST` es `201 Created`, con el usuario del token como creador. Sin token, `401`.
+`GET /api/incidents` también requiere el token y devuelve únicamente las incidencias de su creador;
+`GET /api/incidents/{id}` sigue siendo público.
+
+```bash
+curl -i http://localhost:8080/api/incidents \
+  -H "Authorization: Bearer $TOKEN"
+```
 
 ### Usuarios de prueba
 
