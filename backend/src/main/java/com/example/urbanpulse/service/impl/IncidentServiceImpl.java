@@ -22,6 +22,15 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class IncidentServiceImpl implements IncidentService {
 
+    @Override
+    public List<IncidentDTO> getMyIncidents(Integer creatorId) {
+        // Busca incidentes del creador ordenados por fecha de creación descendente
+        return incidentRepository.findByCreadorIdOrderByCreatedAtDesc(creatorId)
+                .stream()
+                .map(IncidentDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
     private final IncidentRepository incidentRepository;
     private final StatusChangeRepository statusChangeRepository;
     private final AppUserRepository appUserRepository;

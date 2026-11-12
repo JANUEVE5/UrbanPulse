@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface IncidentService {
+    List<IncidentDTO> getMyIncidents(Integer creatorId);
     List<IncidentDTO> getAllIncidents();
     Optional<IncidentDTO> getIncidentById(Integer id);
     /** Registra una incidencia a nombre del usuario autenticado {@code creatorId}. */

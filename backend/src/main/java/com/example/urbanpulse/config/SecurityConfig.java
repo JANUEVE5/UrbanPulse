@@ -75,6 +75,7 @@ public class SecurityConfig {
                         // Registro y login: públicos
                         .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/register").permitAll()
                         // Mapa y consulta de incidencias: públicos (cualquiera puede ver el estado de la ciudad)
+                                                .requestMatchers(HttpMethod.GET, "/api/incidents/mine").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/incidents", "/api/incidents/**").permitAll()
                         // Gestión de usuarios: solo administración
                         .requestMatchers("/api/users/**").hasRole("ADMIN")

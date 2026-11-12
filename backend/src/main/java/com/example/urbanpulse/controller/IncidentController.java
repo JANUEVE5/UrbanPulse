@@ -39,7 +39,12 @@ public class IncidentController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @PostMapping
+    @GetMapping("/mine")
+    public ResponseEntity<List<IncidentDTO>> getMyIncidents(@AuthenticationPrincipal Jwt jwt) {
+        Integer creatorId = Integer.valueOf(jwt.getSubject());
+        return ResponseEntity.ok(incidentService.getMyIncidents(creatorId));
+    }
+
     public ResponseEntity<IncidentDTO> createIncident(@Valid @RequestBody CreateIncidentRequest request,
                                                       @AuthenticationPrincipal Jwt jwt) {
         // Requiere token (SecurityConfig): el creador es el usuario autenticado
