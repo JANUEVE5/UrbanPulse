@@ -2,7 +2,7 @@
 
 ## Estado
 
-Accepted
+Superseded by ADR-014
 
 ## Contexto
 

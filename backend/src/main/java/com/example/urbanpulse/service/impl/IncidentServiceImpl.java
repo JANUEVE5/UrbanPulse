@@ -7,6 +7,7 @@ import com.example.urbanpulse.dto.UpdateIncidentStatusRequest;
 import com.example.urbanpulse.dto.UpdateIncidentPriorityRequest;
 import com.example.urbanpulse.entity.AppUser;
 import com.example.urbanpulse.entity.Incident;
+import com.example.urbanpulse.entity.Rol;
 import com.example.urbanpulse.entity.IncidentComment;
 import com.example.urbanpulse.entity.StatusChange;
 import com.example.urbanpulse.repository.AppUserRepository;
@@ -29,9 +30,11 @@ import java.util.stream.Collectors;
 public class IncidentServiceImpl implements IncidentService {
 
     @Override
-    public List<IncidentDTO> getMyIncidents(Integer creatorId) {
-        // Busca incidentes del creador ordenados por fecha de creación descendente
-        return incidentRepository.findByCreadorIdOrderByCreatedAtDesc(creatorId)
+    public List<IncidentDTO> getIncidents(Integer creatorId, Rol role) {
+        List<Incident> incidents = role == Rol.CITIZEN
+                ? incidentRepository.findByCreadorIdOrderByCreatedAtDesc(creatorId)
+                : incidentRepository.findAll();
+        return incidents
                 .stream()
                 .map(IncidentDTO::fromEntity)
                 .collect(Collectors.toList());

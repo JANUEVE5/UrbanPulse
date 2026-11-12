@@ -74,7 +74,7 @@ public class SecurityConfig {
                         .requestMatchers("/error").permitAll()
                         // Registro y login: públicos
                         .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/register").permitAll()
-                        // El mapa y el listado solo muestran incidencias del usuario autenticado
+                        // El listado requiere autenticación; el servicio filtra por rol
                         .requestMatchers(HttpMethod.GET, "/api/incidents", "/api/incidents/mine").authenticated()
                         // El detalle sigue siendo público
                         .requestMatchers(HttpMethod.GET, "/api/incidents/**").permitAll()

@@ -183,7 +183,7 @@ sequenceDiagram
 ```
 
 - La API no guarda sesiones: cada petición lleva su token (Twelve-Factor, factor VI).
-- El mapa y el listado obtienen el ID del creador del JWT y consultan solo sus incidencias.
+- El mapa y el listado requieren JWT; `CITIZEN` ve solo las incidencias propias y el resto de roles ve todas.
 - Los tokens se firman con HMAC-SHA256 y la clave `JWT_SECRET`; caducan a los `JWT_EXPIRATION_MINUTES`.
 - Las reglas de acceso están en `SecurityConfig` y, por método, con `@PreAuthorize("hasRole('...')")`.
 - En la app, `AuthProvider` (`src/context/auth-context.tsx`) guarda el token (almacén cifrado en móvil,
@@ -321,4 +321,5 @@ El registro completo está en [`docs/adr/`](adr/README.md).
 | [010](adr/010-representacion-localizacion.md) | Localización como latitud y longitud numéricas | Accepted |
 | [011](adr/011-convenciones-api-rest.md) | Convenciones de la API REST | Proposed |
 | [012](adr/012-despliegue-contenedores.md) | Despliegue como imagen de contenedor | Proposed |
-| [013](adr/013-listado-de-incidencias-propias.md) | Listado de incidencias propias en el mapa y la vista de lista | Accepted |
+| [013](adr/013-listado-de-incidencias-propias.md) | Listado de incidencias propias en el mapa y la vista de lista | Superseded by ADR-014 |
+| [014](adr/014-listado-de-incidencias-segun-rol.md) | Mostrar incidencias según el rol autenticado | Accepted |

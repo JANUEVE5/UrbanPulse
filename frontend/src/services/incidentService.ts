@@ -49,6 +49,7 @@ export interface CreateIncidentInput {
   longitud: number;
 }
 
+/** Incidencias visibles para el usuario autenticado según su rol. */
 export interface UpdateIncidentPriorityInput {
   prioridad: IncidentPriority;
 }

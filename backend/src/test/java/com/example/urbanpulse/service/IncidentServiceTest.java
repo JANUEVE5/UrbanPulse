@@ -7,6 +7,7 @@ import com.example.urbanpulse.dto.UpdateIncidentPriorityRequest;
 import com.example.urbanpulse.dto.CreateIncidentCommentRequest;
 import com.example.urbanpulse.entity.AppUser;
 import com.example.urbanpulse.entity.Incident;
+import com.example.urbanpulse.entity.Rol;
 import com.example.urbanpulse.entity.IncidentComment;
 import com.example.urbanpulse.entity.StatusChange;
 import com.example.urbanpulse.entity.UrbanAsset;
@@ -70,11 +71,11 @@ class IncidentServiceTest {
     }
 
     @Test
-    @DisplayName("getMyIncidents retorna las incidencias del creador en formato DTO")
-    void testGetMyIncidents() {
+    @DisplayName("getIncidents filtra por creador para ciudadanos")
+    void testGetCitizenIncidents() {
         when(incidentRepository.findByCreadorIdOrderByCreatedAtDesc(1)).thenReturn(List.of(testIncident));
 
-        List<IncidentDTO> result = incidentService.getMyIncidents(1);
+        List<IncidentDTO> result = incidentService.getIncidents(1, Rol.CITIZEN);
 
         assertNotNull(result);
         assertEquals(1, result.size());
@@ -89,6 +90,37 @@ class IncidentServiceTest {
         assertEquals(1, dto.getIdCreador());
         assertEquals("Ana García", dto.getNombreCreador());
         verify(incidentRepository).findByCreadorIdOrderByCreatedAtDesc(1);
+        verify(incidentRepository, never()).findAll();
+    }
+
+    @Test
+    @DisplayName("getIncidents devuelve todas las incidencias a roles no ciudadanos")
+    void testGetAllIncidentsForOperator() {
+        Incident otherIncident = new Incident();
+        otherIncident.setId(2);
+        otherIncident.setReporteCentral("Incidencia de otro usuario.");
+        otherIncident.setCreador(new AppUser(2, "Luis Pérez", "luis@example.com", "hash_2"));
+        when(incidentRepository.findAll()).thenReturn(List.of(testIncident, otherIncident));
+
+        List<IncidentDTO> result = incidentService.getIncidents(1, Rol.OPERATOR);
+
+        assertEquals(2, result.size());
+        assertEquals(1, result.get(0).getIdCreador());
+        assertEquals(2, result.get(1).getIdCreador());
+        verify(incidentRepository).findAll();
+        verify(incidentRepository, never()).findByCreadorIdOrderByCreatedAtDesc(1);
+    }
+
+    @Test
+    @DisplayName("getIncidents devuelve todas las incidencias a administración")
+    void testGetAllIncidentsForAdmin() {
+        when(incidentRepository.findAll()).thenReturn(List.of(testIncident));
+
+        List<IncidentDTO> result = incidentService.getIncidents(1, Rol.ADMIN);
+
+        assertEquals(1, result.size());
+        verify(incidentRepository).findAll();
+        verify(incidentRepository, never()).findByCreadorIdOrderByCreatedAtDesc(1);
     }
 
     @Test

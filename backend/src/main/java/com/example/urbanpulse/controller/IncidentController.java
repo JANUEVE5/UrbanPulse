@@ -1,7 +1,9 @@
 package com.example.urbanpulse.controller;
 
+import com.example.urbanpulse.config.SecurityConfig;
 import com.example.urbanpulse.dto.IncidentDTO;
 import com.example.urbanpulse.dto.CreateIncidentRequest;
+import com.example.urbanpulse.entity.Rol;
 import com.example.urbanpulse.dto.CreateIncidentCommentRequest;
 import com.example.urbanpulse.dto.UpdateIncidentStatusRequest;
 import com.example.urbanpulse.dto.UpdateIncidentPriorityRequest;
@@ -40,9 +42,10 @@ public class IncidentController {
     }
 
     @GetMapping({"", "/mine"})
-    public ResponseEntity<List<IncidentDTO>> getMyIncidents(@AuthenticationPrincipal Jwt jwt) {
+    public ResponseEntity<List<IncidentDTO>> getIncidents(@AuthenticationPrincipal Jwt jwt) {
         Integer creatorId = Integer.valueOf(jwt.getSubject());
-        return ResponseEntity.ok(incidentService.getMyIncidents(creatorId));
+        Rol role = Rol.valueOf(jwt.getClaimAsString(SecurityConfig.ROLE_CLAIM));
+        return ResponseEntity.ok(incidentService.getIncidents(creatorId, role));
     }
 
     @PostMapping
