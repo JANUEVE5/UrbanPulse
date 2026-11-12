@@ -46,14 +46,6 @@ public class IncidentServiceImpl implements IncidentService {
     }
 
     @Override
-    public List<IncidentDTO> getAllIncidents() {
-        return incidentRepository.findAll()
-                .stream()
-                .map(IncidentDTO::fromEntity)
-                .collect(Collectors.toList());
-    }
-
-    @Override
     public Optional<IncidentDTO> getIncidentById(Integer id) {
         return incidentRepository.findById(id)
                 .map(incident -> {

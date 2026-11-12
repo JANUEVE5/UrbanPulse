@@ -74,9 +74,10 @@ public class SecurityConfig {
                         .requestMatchers("/error").permitAll()
                         // Registro y login: públicos
                         .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/register").permitAll()
-                        // Mapa y consulta de incidencias: públicos (cualquiera puede ver el estado de la ciudad)
-                                                .requestMatchers(HttpMethod.GET, "/api/incidents/mine").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/api/incidents", "/api/incidents/**").permitAll()
+                        // El mapa y el listado solo muestran incidencias del usuario autenticado
+                        .requestMatchers(HttpMethod.GET, "/api/incidents", "/api/incidents/mine").authenticated()
+                        // El detalle sigue siendo público
+                        .requestMatchers(HttpMethod.GET, "/api/incidents/**").permitAll()
                         // Gestión de usuarios: solo administración
                         .requestMatchers("/api/users/**").hasRole("ADMIN")
                         // El resto (crear incidencias, /api/auth/me…) exige estar autenticado

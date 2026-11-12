@@ -36,8 +36,8 @@ class IncidentControllerTest {
     private IncidentService incidentService;
 
     @Test
-    @DisplayName("GET /api/incidents debe retornar 200 OK con la lista de incidencias")
-    void testGetAllIncidents() throws Exception {
+    @DisplayName("GET /api/incidents debe retornar solo las incidencias del usuario autenticado")
+    void testGetMyIncidents() throws Exception {
         IncidentDTO dto = new IncidentDTO();
         dto.setId(1);
         dto.setReporteCentral("El semáforo no funciona.");
@@ -50,9 +50,9 @@ class IncidentControllerTest {
         dto.setNombreCreador("Ana García");
         dto.setCreatedAt(LocalDateTime.now());
 
-        when(incidentService.getAllIncidents()).thenReturn(List.of(dto));
+        when(incidentService.getMyIncidents(1)).thenReturn(List.of(dto));
 
-        mockMvc.perform(get("/api/incidents")
+        mockMvc.perform(get("/api/incidents").with(citizenToken())
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(1))
@@ -62,6 +62,23 @@ class IncidentControllerTest {
                 .andExpect(jsonPath("$[0].prioridad").value("Alta"))
                 .andExpect(jsonPath("$[0].urbanAssetTipo").value("Semáforo"))
                 .andExpect(jsonPath("$[0].nombreCreador").value("Ana García"));
+    }
+
+    @Test
+    @DisplayName("GET /api/incidents debe exigir autenticación")
+    void testGetMyIncidentsWithoutToken() throws Exception {
+        mockMvc.perform(get("/api/incidents"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("GET /api/incidents/mine conserva el listado filtrado por el usuario")
+    void testGetMyIncidentsAlias() throws Exception {
+        when(incidentService.getMyIncidents(1)).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/incidents/mine").with(citizenToken()))
+                .andExpect(status().isOk())
+                .andExpect(content().json("[]"));
     }
 
     @Test

@@ -37,7 +37,7 @@ export interface CreateIncidentInput {
   longitud: number;
 }
 
-/** Todas las incidencias (público). */
+/** Incidencias del usuario autenticado. */
 export function getIncidents(): Promise<Incident[]> {
   return apiRequest<Incident[]>('/incidents');
 }

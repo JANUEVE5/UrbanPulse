@@ -62,11 +62,11 @@ class IncidentServiceTest {
     }
 
     @Test
-    @DisplayName("getAllIncidents retorna la lista de incidencias en formato DTO")
-    void testGetAllIncidents() {
-        when(incidentRepository.findAll()).thenReturn(List.of(testIncident));
+    @DisplayName("getMyIncidents retorna las incidencias del creador en formato DTO")
+    void testGetMyIncidents() {
+        when(incidentRepository.findByCreadorIdOrderByCreatedAtDesc(1)).thenReturn(List.of(testIncident));
 
-        List<IncidentDTO> result = incidentService.getAllIncidents();
+        List<IncidentDTO> result = incidentService.getMyIncidents(1);
 
         assertNotNull(result);
         assertEquals(1, result.size());
@@ -80,7 +80,7 @@ class IncidentServiceTest {
         assertEquals("Semáforo", dto.getUrbanAssetTipo());
         assertEquals(1, dto.getIdCreador());
         assertEquals("Ana García", dto.getNombreCreador());
-        verify(incidentRepository, times(1)).findAll();
+        verify(incidentRepository).findByCreadorIdOrderByCreatedAtDesc(1);
     }
 
     @Test

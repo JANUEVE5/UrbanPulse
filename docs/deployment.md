@@ -92,7 +92,7 @@ La referencia completa está en [`.env.example`](../.env.example). Los secretos 
 
 Después de cada despliegue se verifica que:
 
-- la API responde (`GET /api/incidents`);
+- la API responde con credenciales (`GET /api/incidents`, que requiere un token válido);
 - el endpoint de salud responde `UP` (`/actuator/health`, pendiente de añadir Spring Boot Actuator);
 - la aplicación conecta con la base de datos;
 - no hay errores críticos en los logs (que salen por stdout, factor XI).

@@ -27,11 +27,6 @@ public class IncidentController {
         this.incidentService = incidentService;
     }
 
-    @GetMapping
-    public ResponseEntity<List<IncidentDTO>> getAllIncidents() {
-        return ResponseEntity.ok(incidentService.getAllIncidents());
-    }
-
     @GetMapping("/{id}")
     public ResponseEntity<IncidentDTO> getIncidentById(@PathVariable Integer id) {
         return incidentService.getIncidentById(id)
@@ -39,7 +34,7 @@ public class IncidentController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @GetMapping("/mine")
+    @GetMapping({"", "/mine"})
     public ResponseEntity<List<IncidentDTO>> getMyIncidents(@AuthenticationPrincipal Jwt jwt) {
         Integer creatorId = Integer.valueOf(jwt.getSubject());
         return ResponseEntity.ok(incidentService.getMyIncidents(creatorId));

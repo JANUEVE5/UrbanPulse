@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -41,6 +41,7 @@ export default function IncidentsScreen() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [loadingList, setLoadingList] = useState<boolean>(true);
   const [errorList, setErrorList] = useState<string | null>(null);
+  const listRequestId = useRef(0);
 
   // Estados para el detalle
   const [incidentDetail, setIncidentDetail] = useState<Incident | null>(null);
@@ -49,20 +50,24 @@ export default function IncidentsScreen() {
   const [creatingIncident, setCreatingIncident] = useState(false);
   const [creationSuccess, setCreationSuccess] = useState(false);
 
-  const fetchIncidents = async () => {
+  const fetchIncidents = useCallback(async () => {
+    if (authStatus !== 'signedIn') return;
+    const requestId = ++listRequestId.current;
     setLoadingList(true);
     setErrorList(null);
     try {
       const data = await getIncidents();
-      setIncidents(data);
+      if (requestId === listRequestId.current) setIncidents(data);
     } catch (err: any) {
-      setErrorList(err.message || 'No se pudieron cargar las incidencias.');
+      if (requestId === listRequestId.current) {
+        setErrorList(err.message || 'No se pudieron cargar las incidencias.');
+      }
     } finally {
-      setLoadingList(false);
+      if (requestId === listRequestId.current) setLoadingList(false);
     }
-  };
+  }, [authStatus]);
 
-  const fetchDetail = async (id: number) => {
+  const fetchDetail = useCallback(async (id: number) => {
     setLoadingDetail(true);
     setErrorDetail(null);
     try {
@@ -73,16 +78,24 @@ export default function IncidentsScreen() {
     } finally {
       setLoadingDetail(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
+    if (authStatus === 'loading') return;
+    if (authStatus === 'signedOut') {
+      listRequestId.current += 1;
+      setIncidents([]);
+      setErrorList('Inicia sesión para consultar tus incidencias.');
+      setLoadingList(false);
+      return;
+    }
     void Promise.resolve().then(() => {
       if (selectedId) {
         return fetchDetail(selectedId);
       }
       return fetchIncidents();
     });
-  }, [selectedId]);
+  }, [selectedId, authStatus, fetchDetail, fetchIncidents]);
 
   const handleSelectIncident = (id: number) => {
     router.push({
@@ -168,13 +181,17 @@ export default function IncidentsScreen() {
               ) : errorList ? (
                 <>
                   <ThemedText type="small" style={styles.errorTitle}>
-                    No se pudieron cargar las incidencias.
+                    {authStatus === 'signedOut'
+                      ? 'Inicia sesión para consultar tus incidencias.'
+                      : 'No se pudieron cargar las incidencias.'}
                   </ThemedText>
-                  <Pressable onPress={fetchIncidents} accessibilityRole="button">
-                    <ThemedText type="smallBold" style={{ color: theme.primary }}>
-                      Reintentar
-                    </ThemedText>
-                  </Pressable>
+                  {authStatus !== 'signedOut' && (
+                    <Pressable onPress={fetchIncidents} accessibilityRole="button">
+                      <ThemedText type="smallBold" style={{ color: theme.primary }}>
+                        Reintentar
+                      </ThemedText>
+                    </Pressable>
+                  )}
                 </>
               ) : (
                 <ThemedText type="smallBold" style={styles.successText}>
@@ -234,6 +251,7 @@ export default function IncidentsScreen() {
               onRetry={fetchIncidents}
               onCreate={startCreating}
               creationSuccess={creationSuccess}
+              signedOut={authStatus === 'signedOut'}
             />
           )}
         </View>
@@ -278,6 +296,7 @@ interface ListViewProps {
   onRetry: () => void;
   onCreate: () => void;
   creationSuccess: boolean;
+  signedOut: boolean;
 }
 
 function IncidentListView({
@@ -288,6 +307,7 @@ function IncidentListView({
   onRetry,
   onCreate,
   creationSuccess,
+  signedOut,
 }: ListViewProps) {
   return (
     <View style={styles.wrapper}>
@@ -340,16 +360,18 @@ function IncidentListView({
       {!loading && error && (
         <ThemedView type="backgroundElement" style={styles.errorBox}>
           <ThemedText type="default" style={styles.errorTitle}>
-            ⚠️ Error de conexión
+            {signedOut ? 'Inicia sesión' : '⚠️ Error de conexión'}
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary" style={styles.errorText}>
             {error}
           </ThemedText>
-          <Pressable style={styles.retryButton} onPress={onRetry}>
-            <ThemedText type="smallBold" style={styles.retryButtonText}>
-              Reintentar
-            </ThemedText>
-          </Pressable>
+          {!signedOut && (
+            <Pressable style={styles.retryButton} onPress={onRetry}>
+              <ThemedText type="smallBold" style={styles.retryButtonText}>
+                Reintentar
+              </ThemedText>
+            </Pressable>
+          )}
         </ThemedView>
       )}
 
