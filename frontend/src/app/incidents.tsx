@@ -1,8 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,9 +11,14 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CreateIncidentForm } from '@/components/create-incident-form';
+import IncidentMapView from '@/components/IncidentMapView';
+import IncidentsMap from '@/components/incidents-map';
+import type { MapIncident } from '@/components/incidents-map.types';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { Brand, FloatingMenuInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { useIsWideLayout } from '@/hooks/use-layout';
+import { useAuth } from '@/context/auth-context';
 import { useTheme } from '@/hooks/use-theme';
 import {
   getIncidentById,
@@ -28,17 +32,30 @@ import {
 
 export default function IncidentsScreen() {
   const router = useRouter();
-  const searchParams = useLocalSearchParams<{ id?: string }>();
+  const searchParams = useLocalSearchParams<{ id?: string; vista?: string; crear?: string }>();
+  const { status: authStatus, user } = useAuth();
   const selectedId = searchParams.id ? Number(searchParams.id) : null;
+  // Vista principal: mapa por defecto; ?vista=lista muestra el listado
+  const showList = searchParams.vista === 'lista';
 
   const insets = useSafeAreaInsets();
   const theme = useTheme();
-  const isDark = theme.background === '#000000';
+  const isWide = useIsWideLayout();
 
   // Estados para la lista
-  const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [incidentList, setIncidentList] = useState<{ userId: number; incidents: Incident[] } | null>(null);
   const [loadingList, setLoadingList] = useState<boolean>(true);
-  const [errorList, setErrorList] = useState<string | null>(null);
+  const [listError, setListError] = useState<{ userId: number; message: string } | null>(null);
+  const listRequestId = useRef(0);
+  const incidents =
+    incidentList && incidentList.userId === user?.id ? incidentList.incidents : [];
+  const errorList =
+    authStatus === 'signedOut'
+      ? 'Inicia sesión para consultar tus incidencias.'
+      : listError && listError.userId === user?.id
+        ? listError.message
+        : null;
+  const isLoadingList = authStatus === 'loading' || (authStatus === 'signedIn' && loadingList);
 
   // Estados para el detalle
   const [incidentDetail, setIncidentDetail] = useState<Incident | null>(null);
@@ -51,20 +68,29 @@ export default function IncidentsScreen() {
   const [updatingPriority, setUpdatingPriority] = useState(false);
   const [postingComment, setPostingComment] = useState(false);
 
-  const fetchIncidents = async () => {
+  const fetchIncidents = useCallback(async () => {
+    if (authStatus !== 'signedIn' || user === null) return;
+    const requestId = ++listRequestId.current;
     setLoadingList(true);
-    setErrorList(null);
+    setListError(null);
     try {
       const data = await getIncidents();
-      setIncidents(data);
+      if (requestId === listRequestId.current) {
+        setIncidentList({ userId: user.id, incidents: data });
+      }
     } catch (err: any) {
-      setErrorList(err.message || 'No se pudieron cargar las incidencias.');
+      if (requestId === listRequestId.current) {
+        setListError({
+          userId: user.id,
+          message: err.message || 'No se pudieron cargar las incidencias.',
+        });
+      }
     } finally {
-      setLoadingList(false);
+      if (requestId === listRequestId.current) setLoadingList(false);
     }
-  };
+  }, [authStatus, user]);
 
-  const fetchDetail = async (id: number) => {
+  const fetchDetail = useCallback(async (id: number) => {
     setLoadingDetail(true);
     setErrorDetail(null);
     setStatusError(null);
@@ -76,16 +102,21 @@ export default function IncidentsScreen() {
     } finally {
       setLoadingDetail(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
+    if (authStatus === 'loading') return;
+    if (authStatus === 'signedOut') {
+      listRequestId.current += 1;
+      return;
+    }
     void Promise.resolve().then(() => {
       if (selectedId) {
         return fetchDetail(selectedId);
       }
       return fetchIncidents();
     });
-  }, [selectedId]);
+  }, [selectedId, authStatus, fetchDetail, fetchIncidents]);
 
   const handleSelectIncident = (id: number) => {
     router.push({
@@ -97,8 +128,38 @@ export default function IncidentsScreen() {
   const handleBackToList = () => {
     setIncidentDetail(null);
     setErrorDetail(null);
-    router.push('/incidents');
+    // Vuelve a la vista desde la que se abrió (mapa o lista)
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.push('/incidents');
+    }
   };
+
+  const toggleView = () => {
+    router.setParams({ vista: showList ? undefined : 'lista' });
+  };
+
+  // Crear incidencias exige sesión (RF01): sin ella se va al login y, al entrar, se abre el formulario
+  const startCreating = () => {
+    if (authStatus !== 'signedIn') {
+      router.push({ pathname: '/login', params: { destino: 'crear' } });
+      return;
+    }
+    setCreationSuccess(false);
+    setCreatingIncident(true);
+  };
+
+  // Vuelta del login con ?crear=1: abrir el formulario directamente
+  const openCreateFromLogin = searchParams.crear === '1' && authStatus === 'signedIn';
+  useEffect(() => {
+    if (!openCreateFromLogin) return;
+    router.setParams({ crear: undefined });
+    void Promise.resolve().then(() => {
+      setCreationSuccess(false);
+      setCreatingIncident(true);
+    });
+  }, [openCreateFromLogin, router]);
 
   const handleIncidentCreated = async () => {
     setCreatingIncident(false);
@@ -147,71 +208,149 @@ export default function IncidentsScreen() {
     }
   };
 
-  const contentPlatformStyle = Platform.select({
-    android: {
-      paddingTop: insets.top + Spacing.two,
-      paddingLeft: insets.left + Spacing.two,
-      paddingRight: insets.right + Spacing.two,
-      paddingBottom: insets.bottom + BottomTabInset + Spacing.three,
-    },
-    web: {
-      paddingTop: Spacing.four,
-      paddingBottom: BottomTabInset + Spacing.six,
-      paddingHorizontal: Spacing.three,
-    },
-    default: {
-      paddingTop: insets.top + Spacing.two,
-      paddingBottom: insets.bottom + BottomTabInset + Spacing.three,
-      paddingHorizontal: Spacing.three,
-    },
-  });
+  // En pantallas estrechas se deja sitio al botón de menú flotante (arriba a la izquierda)
+  const contentPlatformStyle = {
+    paddingTop: isWide ? Spacing.four : insets.top + FloatingMenuInset,
+    paddingBottom: insets.bottom + Spacing.five,
+    paddingLeft: insets.left + Spacing.three,
+    paddingRight: insets.right + Spacing.three,
+  };
+
+  // =================== VISTA MAPA (principal) ===================
+  if (!selectedId && !creatingIncident && !showList) {
+    const mapIncidents: MapIncident[] = incidents
+      .filter((i) => i.latitud != null && i.longitud != null)
+      .map((i) => ({
+        id: i.id,
+        titulo: i.titulo || i.reporteCentral,
+        localizacion: i.localizacion,
+        estado: i.estado,
+        latitud: Number(i.latitud),
+        longitud: Number(i.longitud),
+      }));
+
+    return (
+      <View style={[styles.mapScreen, { backgroundColor: theme.background }]}>
+        <IncidentsMap incidents={mapIncidents} onOpenIncident={handleSelectIncident} />
+
+        {(isLoadingList || errorList || creationSuccess) && (
+          <View
+            style={[styles.mapBanner, { top: insets.top + (isWide ? Spacing.three : FloatingMenuInset) }]}
+            pointerEvents="box-none">
+            <ThemedView type="background" style={[styles.mapBannerBox, { borderColor: theme.border }]}>
+              {isLoadingList ? (
+                <ThemedText type="small">Cargando incidencias…</ThemedText>
+              ) : errorList ? (
+                <>
+                  <ThemedText type="small" style={styles.errorTitle}>
+                    {authStatus === 'signedOut'
+                      ? 'Inicia sesión para consultar tus incidencias.'
+                      : 'No se pudieron cargar las incidencias.'}
+                  </ThemedText>
+                  {authStatus !== 'signedOut' && (
+                    <Pressable onPress={fetchIncidents} accessibilityRole="button">
+                      <ThemedText type="smallBold" style={{ color: theme.primary }}>
+                        Reintentar
+                      </ThemedText>
+                    </Pressable>
+                  )}
+                </>
+              ) : (
+                <ThemedText type="smallBold" style={styles.successText}>
+                  Incidencia registrada.
+                </ThemedText>
+              )}
+            </ThemedView>
+          </View>
+        )}
+
+        <ViewToggle showList={false} onToggle={toggleView} top={insets.top + Spacing.three} />
+
+        <Pressable
+          onPress={startCreating}
+          accessibilityRole="button"
+          accessibilityLabel="Crear incidencia"
+          style={({ pressed }) => [
+            styles.fab,
+            { bottom: insets.bottom + Spacing.four, right: insets.right + Spacing.three },
+            pressed && styles.pressed,
+          ]}>
+          <ThemedText style={styles.fabIcon}>+</ThemedText>
+          {isWide && <ThemedText style={styles.fabLabel}>Crear incidencia</ThemedText>}
+        </Pressable>
+      </View>
+    );
+  }
 
   return (
-    <ScrollView
-      style={[styles.scrollView, { backgroundColor: theme.background }]}
-      contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}>
-      <View style={styles.maxContainer}>
-        {selectedId ? (
-          // =================== VISTA DETALLE ===================
-          <IncidentDetailView
-            id={selectedId}
-            incident={incidentDetail}
-            loading={loadingDetail}
-            error={errorDetail}
-            isDark={isDark}
-            onBack={handleBackToList}
-            onRetry={() => fetchDetail(selectedId)}
-            onTransition={(estado, motivo) => handleStatusTransition(selectedId, estado, motivo)}
-            onPriorityChange={(prioridad) => handlePriorityChange(selectedId, prioridad)}
-            onAddComment={(contenido) => handleAddComment(selectedId, contenido)}
-            updatingStatus={updatingStatus}
-            updatingPriority={updatingPriority}
-            postingComment={postingComment}
-            statusError={statusError}
-          />
-        ) : creatingIncident ? (
-          <CreateIncidentForm
-            onCancel={() => setCreatingIncident(false)}
-            onCreated={handleIncidentCreated}
-          />
-        ) : (
-          // =================== VISTA LISTADO ===================
-          <IncidentListView
-            incidents={incidents}
-            loading={loadingList}
-            error={errorList}
-            isDark={isDark}
-            onSelectIncident={handleSelectIncident}
-            onRetry={fetchIncidents}
-            onCreate={() => {
-              setCreationSuccess(false);
-              setCreatingIncident(true);
-            }}
-            creationSuccess={creationSuccess}
-          />
-        )}
-      </View>
-    </ScrollView>
+    <View style={styles.mapScreen}>
+      <ScrollView
+        style={[styles.scrollView, { backgroundColor: theme.background }]}
+        contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}>
+        <View style={styles.maxContainer}>
+          {selectedId ? (
+            // =================== VISTA DETALLE ===================
+            <IncidentDetailView
+              id={selectedId}
+              incident={incidentDetail}
+              loading={loadingDetail}
+              error={errorDetail}
+              onBack={handleBackToList}
+              onRetry={() => fetchDetail(selectedId)}
+              onTransition={(estado, motivo) => handleStatusTransition(selectedId, estado, motivo)}
+              onPriorityChange={(prioridad) => handlePriorityChange(selectedId, prioridad)}
+              onAddComment={(contenido) => handleAddComment(selectedId, contenido)}
+              updatingStatus={updatingStatus}
+              updatingPriority={updatingPriority}
+              postingComment={postingComment}
+              statusError={statusError}
+            />
+          ) : creatingIncident ? (
+            <CreateIncidentForm
+              onCancel={() => setCreatingIncident(false)}
+              onCreated={handleIncidentCreated}
+            />
+          ) : (
+            // =================== VISTA LISTADO ===================
+            <IncidentListView
+              incidents={incidents}
+              loading={isLoadingList}
+              error={errorList}
+              onSelectIncident={handleSelectIncident}
+              onRetry={fetchIncidents}
+              onCreate={startCreating}
+              creationSuccess={creationSuccess}
+              signedOut={authStatus === 'signedOut'}
+            />
+          )}
+        </View>
+      </ScrollView>
+      {showList && !selectedId && !creatingIncident && (
+        <ViewToggle showList onToggle={toggleView} top={insets.top + Spacing.three} />
+      )}
+    </View>
+  );
+}
+
+// -------------------------------------------------------------
+// Botón flotante (arriba a la derecha) para cambiar entre mapa y lista
+// -------------------------------------------------------------
+function ViewToggle({ showList, onToggle, top }: { showList: boolean; onToggle: () => void; top: number }) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      onPress={onToggle}
+      accessibilityRole="button"
+      accessibilityLabel={showList ? 'Ver el mapa de incidencias' : 'Ver la lista de incidencias'}
+      style={({ pressed }) => [
+        styles.viewToggle,
+        { top, backgroundColor: theme.background, borderColor: theme.border },
+        pressed && styles.pressed,
+      ]}>
+      <ThemedText type="smallBold" style={{ color: theme.primary }}>
+        {showList ? 'Ver mapa' : 'Ver lista'}
+      </ThemedText>
+    </Pressable>
   );
 }
 
@@ -222,22 +361,22 @@ interface ListViewProps {
   incidents: Incident[];
   loading: boolean;
   error: string | null;
-  isDark: boolean;
   onSelectIncident: (id: number) => void;
   onRetry: () => void;
   onCreate: () => void;
   creationSuccess: boolean;
+  signedOut: boolean;
 }
 
 function IncidentListView({
   incidents,
   loading,
   error,
-  isDark,
   onSelectIncident,
   onRetry,
   onCreate,
   creationSuccess,
+  signedOut,
 }: ListViewProps) {
   return (
     <View style={styles.wrapper}>
@@ -279,7 +418,7 @@ function IncidentListView({
       {/* Estado de Carga */}
       {loading && (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#3c87f7" />
+          <ActivityIndicator size="large" color={Brand.blue} />
           <ThemedText type="small" style={{ marginTop: Spacing.two }}>
             Cargando incidencias...
           </ThemedText>
@@ -290,65 +429,51 @@ function IncidentListView({
       {!loading && error && (
         <ThemedView type="backgroundElement" style={styles.errorBox}>
           <ThemedText type="default" style={styles.errorTitle}>
-            ⚠️ Error de conexión
+            {signedOut ? 'Inicia sesión' : '⚠️ Error de conexión'}
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary" style={styles.errorText}>
             {error}
           </ThemedText>
-          <Pressable style={styles.retryButton} onPress={onRetry}>
-            <ThemedText type="smallBold" style={styles.retryButtonText}>
-              Reintentar
-            </ThemedText>
-          </Pressable>
+          {!signedOut && (
+            <Pressable style={styles.retryButton} onPress={onRetry}>
+              <ThemedText type="smallBold" style={styles.retryButtonText}>
+                Reintentar
+              </ThemedText>
+            </Pressable>
+          )}
         </ThemedView>
       )}
 
       {/* Lista vacía */}
       {!loading && !error && incidents.length === 0 && (
         <ThemedView type="backgroundElement" style={styles.emptyBox}>
-          <ThemedText type="default">No hay incidencias registradas en este momento.</ThemedText>
+          <ThemedText type="default">No hay incidencias registradas.</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary" style={{ marginTop: Spacing.one }}>
+            Crea una nueva incidencia con el botón superior.
+          </ThemedText>
         </ThemedView>
       )}
 
-      {/* Tarjetas de incidencias */}
+      {/* Lista de Tarjetas */}
       {!loading && !error && incidents.length > 0 && (
         <View style={styles.listContainer}>
-          {incidents.map((inc) => {
-            const statusColors = getStatusBadgeColor(inc.estado, isDark);
-            const priorityColors = getPriorityBadgeColor(inc.prioridad, isDark);
+          {incidents.map((incident) => {
+            const statusColors = getStatusBadgeColor(incident.estado);
+            const priorityColors = getPriorityBadgeColor(incident.prioridad);
 
             return (
               <Pressable
-                key={inc.id}
-                style={({ pressed }) => [
-                  styles.cardPressable,
-                  pressed && styles.pressed,
-                ]}
-                onPress={() => onSelectIncident(inc.id)}>
+                key={incident.id}
+                style={({ pressed }) => [styles.cardPressable, pressed && styles.pressed]}
+                onPress={() => onSelectIncident(incident.id)}>
                 <ThemedView type="backgroundElement" style={styles.card}>
                   <View style={styles.cardHeader}>
                     <View style={styles.idBadge}>
                       <ThemedText type="smallBold" style={styles.idBadgeText}>
-                        #{inc.id}
+                        #{incident.id}
                       </ThemedText>
                     </View>
-
                     <View style={styles.badgeRow}>
-                      <View
-                        style={[
-                          styles.badge,
-                          {
-                            backgroundColor: statusColors.bg,
-                            borderColor: statusColors.border,
-                          },
-                        ]}>
-                        <ThemedText
-                          type="smallBold"
-                          style={{ color: statusColors.text, fontSize: 12 }}>
-                          {inc.estado}
-                        </ThemedText>
-                      </View>
-
                       <View
                         style={[
                           styles.badge,
@@ -357,47 +482,56 @@ function IncidentListView({
                             borderColor: priorityColors.border,
                           },
                         ]}>
-                        <ThemedText
-                          type="smallBold"
-                          style={{ color: priorityColors.text, fontSize: 12 }}>
-                          {inc.prioridad}
+                        <ThemedText type="smallBold" style={{ color: priorityColors.text }}>
+                          {incident.prioridad}
+                        </ThemedText>
+                      </View>
+                      <View
+                        style={[
+                          styles.badge,
+                          {
+                            backgroundColor: statusColors.bg,
+                            borderColor: statusColors.border,
+                          },
+                        ]}>
+                        <ThemedText type="smallBold" style={{ color: statusColors.text }}>
+                          {incident.estado}
                         </ThemedText>
                       </View>
                     </View>
                   </View>
 
-                  <ThemedText type="default" style={styles.reporteTitle}>
-                    {inc.titulo || inc.reporteCentral}
+                  <ThemedText type="default" style={styles.reporteTitle} numberOfLines={2}>
+                    {incident.titulo || incident.reporteCentral}
                   </ThemedText>
 
-                  {inc.descripcion && inc.descripcion !== (inc.titulo || inc.reporteCentral) ? (
-                    <ThemedText type="small" themeColor="textSecondary">
-                      {inc.descripcion}
+                  {incident.descripcion && incident.titulo ? (
+                    <ThemedText type="small" themeColor="textSecondary" numberOfLines={2}>
+                      {incident.descripcion}
                     </ThemedText>
                   ) : null}
 
                   <View style={styles.cardFooter}>
-                    {inc.localizacion ? (
+                    {incident.localizacion ? (
                       <ThemedText type="small" themeColor="textSecondary">
-                        📍 {inc.localizacion}
+                        📍 {incident.localizacion}
                       </ThemedText>
                     ) : null}
-
-                    {inc.urbanAssetTipo ? (
+                    {incident.urbanAssetTipo ? (
                       <ThemedText type="small" themeColor="textSecondary">
-                        🏙️ Activo: {inc.urbanAssetTipo}
+                        🏛️ {incident.urbanAssetTipo}
                       </ThemedText>
                     ) : null}
-                    {inc.categoria ? (
+                    {incident.createdAt ? (
                       <ThemedText type="small" themeColor="textSecondary">
-                        🏷️ {inc.categoria}
+                        📅 {formatDate(incident.createdAt)}
                       </ThemedText>
                     ) : null}
                   </View>
 
                   <View style={styles.cardCta}>
-                    <ThemedText type="linkPrimary" style={styles.ctaText}>
-                      Ver detalle de atributos →
+                    <ThemedText type="smallBold" themeColor="textSecondary" style={styles.ctaText}>
+                      Ver detalle completo →
                     </ThemedText>
                   </View>
                 </ThemedView>
@@ -411,6 +545,14 @@ function IncidentListView({
 }
 
 // -------------------------------------------------------------
+// Coordenadas de la incidencia (RF04): las devuelve la API como latitud/longitud
+// -------------------------------------------------------------
+function getIncidentCoordinates(incident: Incident): { latitude: number; longitude: number } | null {
+  if (incident.latitud == null || incident.longitud == null) return null;
+  return { latitude: Number(incident.latitud), longitude: Number(incident.longitud) };
+}
+
+// -------------------------------------------------------------
 // Componente de Detalle de Incidencia
 // -------------------------------------------------------------
 interface DetailViewProps {
@@ -418,7 +560,6 @@ interface DetailViewProps {
   incident: Incident | null;
   loading: boolean;
   error: string | null;
-  isDark: boolean;
   onBack: () => void;
   onRetry: () => void;
   onTransition: (estado: string, motivo: string) => void;
@@ -435,7 +576,6 @@ function IncidentDetailView({
   incident,
   loading,
   error,
-  isDark,
   onBack,
   onRetry,
   onTransition,
@@ -447,33 +587,40 @@ function IncidentDetailView({
   statusError,
 }: DetailViewProps) {
   const theme = useTheme();
+  const { user } = useAuth();
+  const canManageStatus = user !== null && ['OPERATOR', 'TECHNICIAN', 'ADMIN'].includes(user.rol);
+  const canManagePriority = user !== null && ['OPERATOR', 'ADMIN'].includes(user.rol);
   const [motivo, setMotivo] = useState('');
   const [commentText, setCommentText] = useState('');
-  const statusColors = incident ? getStatusBadgeColor(incident.estado, isDark) : null;
-  const priorityColors = incident ? getPriorityBadgeColor(incident.prioridad, isDark) : null;
+  const statusColors = incident ? getStatusBadgeColor(incident.estado) : null;
+  const priorityColors = incident ? getPriorityBadgeColor(incident.prioridad) : null;
   const nextStatuses = incident ? getNextIncidentStatuses(incident.estado) : [];
+  const coords = incident ? getIncidentCoordinates(incident) : null;
 
   return (
     <View style={styles.wrapper}>
-      {/* Botón Volver */}
-      <Pressable style={({ pressed }) => [styles.backButton, pressed && styles.pressed]} onPress={onBack}>
-        <ThemedText type="linkPrimary" style={styles.backButtonText}>
-          ← Volver al listado de incidencias
-        </ThemedText>
-      </Pressable>
-
-      {/* Título de la vista */}
-      <View style={styles.detailHeader}>
-        <ThemedText type="subtitle">Detalle de Incidencia #{id}</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
-          Consulta de atributos por identificador
-        </ThemedText>
+      {/* Cabecera con botón para volver al listado */}
+      <View style={styles.detailHeaderRow}>
+        <Pressable
+          onPress={onBack}
+          accessibilityRole="button"
+          accessibilityLabel="Volver al listado de incidencias"
+          hitSlop={8}
+          style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
+          <ThemedText style={styles.backButtonIcon}>←</ThemedText>
+        </Pressable>
+        <View style={styles.detailHeader}>
+          <ThemedText type="subtitle">Detalle de Incidencia #{id}</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            Consulta de atributos por identificador
+          </ThemedText>
+        </View>
       </View>
 
       {/* Estado de carga */}
       {loading && (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#3c87f7" />
+          <ActivityIndicator size="large" color={Brand.blue} />
           <ThemedText type="small" style={{ marginTop: Spacing.two }}>
             Obteniendo detalle de la incidencia #{id}...
           </ThemedText>
@@ -584,7 +731,7 @@ function IncidentDetailView({
                   </ThemedText>
                 </View>
               )}
-              <View style={styles.priorityOptions}>
+              {canManagePriority ? <View style={styles.priorityOptions}>
                 {(['Baja', 'Media', 'Alta'] as const).map((priority) => (
                   <Pressable
                     key={priority}
@@ -605,7 +752,7 @@ function IncidentDetailView({
                     </ThemedText>
                   </Pressable>
                 ))}
-              </View>
+              </View> : null}
             </View>
           </ThemedView>
 
@@ -615,14 +762,61 @@ function IncidentDetailView({
               🏙️ UBICACIÓN Y ACTIVO URBANO
             </ThemedText>
 
-            <View style={styles.attributeRow}>
-              <ThemedText type="smallBold" themeColor="textSecondary" style={styles.attributeLabel}>
-                Localización:
+            {/* Dirección escrita (opcional) */}
+            {incident.localizacion ? (
+              <View style={styles.attributeRow}>
+                <ThemedText type="smallBold" themeColor="textSecondary" style={styles.attributeLabel}>
+                  Dirección:
+                </ThemedText>
+                <ThemedText type="default" style={styles.attributeValue}>
+                  📍 {incident.localizacion}
+                </ThemedText>
+              </View>
+            ) : null}
+
+            {!coords && (
+              <ThemedText type="small" themeColor="textSecondary">
+                Esta incidencia no tiene ubicación registrada.
               </ThemedText>
-              <ThemedText type="default" style={styles.attributeValue}>
-                {incident.localizacion ? `📍 ${incident.localizacion}` : 'No especificada'}
-              </ThemedText>
-            </View>
+            )}
+
+            {coords && (
+              <View style={styles.attributeRow}>
+                <ThemedText type="smallBold" themeColor="textSecondary" style={styles.attributeLabel}>
+                  Coordenadas geográficas:
+                </ThemedText>
+                <ThemedText type="small" style={styles.attributeValue}>
+                  Latitud: {coords.latitude.toFixed(6)} | Longitud: {coords.longitude.toFixed(6)}
+                </ThemedText>
+              </View>
+            )}
+
+            {/* Mapa de la incidencia con marcador sobre OpenStreetMap (Leaflet / Nativo) */}
+            {coords && (
+              <View style={styles.detailMapWrapper}>
+                <View style={styles.detailMapContainer}>
+                  <IncidentMapView
+                    key={`detail-map-${incident.id}`}
+                    initialRegion={{
+                      latitude: coords.latitude,
+                      longitude: coords.longitude,
+                      latitudeDelta: 0.005,
+                      longitudeDelta: 0.005,
+                    }}
+                    region={{
+                      latitude: coords.latitude,
+                      longitude: coords.longitude,
+                      latitudeDelta: 0.005,
+                      longitudeDelta: 0.005,
+                    }}
+                    selectedCoordinate={coords}
+                  />
+                </View>
+                <ThemedText type="small" themeColor="textSecondary" style={styles.mapHintText}>
+                  📍 Ubicación de la incidencia marcada en el mapa
+                </ThemedText>
+              </View>
+            )}
 
             <View style={styles.attributeRow}>
               <ThemedText type="smallBold" themeColor="textSecondary" style={styles.attributeLabel}>
@@ -668,7 +862,7 @@ function IncidentDetailView({
               🕒 SEGUIMIENTO E HISTORIAL DE AUDITORÍA
             </ThemedText>
 
-            {nextStatuses.length > 0 ? (
+            {canManageStatus && nextStatuses.length > 0 ? (
               <View style={styles.transitionControls}>
                 <ThemedText type="smallBold">Cambiar estado</ThemedText>
                 <TextInput
@@ -706,11 +900,11 @@ function IncidentDetailView({
                   ))}
                 </View>
               </View>
-            ) : (
+            ) : canManageStatus ? (
               <ThemedText type="small" themeColor="textSecondary">
                 La incidencia está en su estado final.
               </ThemedText>
-            )}
+            ) : null}
 
             {statusError ? (
               <ThemedView style={styles.statusErrorBox}>
@@ -722,34 +916,31 @@ function IncidentDetailView({
 
             {incident.historial && incident.historial.length > 0 ? (
               <View style={styles.timelineList}>
-                {incident.historial.map((item, idx) => (
-                  <View key={item.id ?? idx} style={styles.timelineItem}>
+                {incident.historial.map((change, index) => (
+                  <View key={change.id || index} style={styles.timelineItem}>
                     <View style={styles.timelineMarker}>
                       <View style={styles.timelineDot} />
-                      {idx < (incident.historial?.length ?? 0) - 1 && <View style={styles.timelineLine} />}
+                      {index < (incident.historial?.length || 0) - 1 && <View style={styles.timelineLine} />}
                     </View>
                     <View style={styles.timelineContent}>
-                      <ThemedText type="smallBold">
-                        {item.transicion}
-                      </ThemedText>
-                      {item.motivo && (
-                        <ThemedText type="small" themeColor="textSecondary" style={{ marginTop: 2 }}>
-                          Motivo: {item.motivo}
+                      <ThemedText type="smallBold">{change.transicion}</ThemedText>
+                      {change.motivo ? (
+                        <ThemedText type="small" themeColor="textSecondary">
+                          Motivo: {change.motivo}
                         </ThemedText>
-                      )}
-                      <ThemedText type="code" style={{ marginTop: 4, color: '#888' }}>
-                        Por: {item.actorNombre || `Actor #${item.actorId}`} • {formatDate(item.instante)}
+                      ) : null}
+                      <ThemedText type="small" themeColor="textSecondary">
+                        Actor: {change.actorNombre || `Usuario #${change.actorId}`} •{' '}
+                        {formatDate(change.instante)}
                       </ThemedText>
                     </View>
                   </View>
                 ))}
               </View>
             ) : (
-              <View style={styles.emptyHistory}>
-                <ThemedText type="small" themeColor="textSecondary">
-                  Sin transiciones de estado registradas aún en el sistema.
-                </ThemedText>
-              </View>
+              <ThemedText type="small" themeColor="textSecondary" style={styles.emptyHistory}>
+                No hay transiciones de estado registradas todavía.
+              </ThemedText>
             )}
           </ThemedView>
 
@@ -757,47 +948,55 @@ function IncidentDetailView({
             <ThemedText type="smallBold" style={styles.cardSectionTitle}>
               💬 COMENTARIOS
             </ThemedText>
-            <TextInput
-              accessibilityLabel="Nuevo comentario"
-              value={commentText}
-              onChangeText={setCommentText}
-              placeholder="Escribe un comentario..."
-              placeholderTextColor={theme.textSecondary}
-              maxLength={400}
-              multiline
-              textAlignVertical="top"
-              style={[
-                styles.transitionInput,
-                styles.commentInput,
-                { color: theme.text, borderColor: theme.backgroundSelected },
-              ]}
-            />
-            <View style={styles.commentSubmitRow}>
-              <ThemedText type="small" themeColor="textSecondary">
-                {commentText.length}/400
-              </ThemedText>
-              <Pressable
-                accessibilityRole="button"
-                disabled={postingComment || !commentText.trim()}
-                onPress={() => {
-                  void onAddComment(commentText).then((added) => {
-                    if (added) setCommentText('');
-                  });
-                }}
-                style={({ pressed }) => [
-                  styles.transitionButton,
-                  pressed && styles.pressed,
-                  (postingComment || !commentText.trim()) && styles.disabledButton,
-                ]}>
-                {postingComment ? (
-                  <ActivityIndicator color="#ffffff" />
-                ) : (
-                  <ThemedText type="smallBold" style={styles.transitionButtonText}>
-                    Añadir comentario
+            {user ? (
+              <>
+                <TextInput
+                  accessibilityLabel="Nuevo comentario"
+                  value={commentText}
+                  onChangeText={setCommentText}
+                  placeholder="Escribe un comentario..."
+                  placeholderTextColor={theme.textSecondary}
+                  maxLength={400}
+                  multiline
+                  textAlignVertical="top"
+                  style={[
+                    styles.transitionInput,
+                    styles.commentInput,
+                    { color: theme.text, borderColor: theme.backgroundSelected },
+                  ]}
+                />
+                <View style={styles.commentSubmitRow}>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {commentText.length}/400
                   </ThemedText>
-                )}
-              </Pressable>
-            </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={postingComment || !commentText.trim()}
+                    onPress={() => {
+                      void onAddComment(commentText).then((added) => {
+                        if (added) setCommentText('');
+                      });
+                    }}
+                    style={({ pressed }) => [
+                      styles.transitionButton,
+                      pressed && styles.pressed,
+                      (postingComment || !commentText.trim()) && styles.disabledButton,
+                    ]}>
+                    {postingComment ? (
+                      <ActivityIndicator color="#ffffff" />
+                    ) : (
+                      <ThemedText type="smallBold" style={styles.transitionButtonText}>
+                        Añadir comentario
+                      </ThemedText>
+                    )}
+                  </Pressable>
+                </View>
+              </>
+            ) : (
+              <ThemedText type="small" themeColor="textSecondary">
+                Inicia sesión para añadir un comentario.
+              </ThemedText>
+            )}
             {incident.comentarios && incident.comentarios.length > 0 ? (
               <View style={styles.commentsList}>
                 {incident.comentarios.map((comment) => (
@@ -822,37 +1021,34 @@ function IncidentDetailView({
 }
 
 // -------------------------------------------------------------
-// Helpers de estilos y formateo
+// Funciones de Ayuda de Estilos
 // -------------------------------------------------------------
-function formatDate(dateStr?: string): string {
+function formatDate(dateStr?: string | null): string {
   if (!dateStr) return 'Fecha no disponible';
   try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleString('es-ES', {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return dateStr;
+    return new Intl.DateTimeFormat('es-ES', {
+      day: '2-digit',
+      month: '2-digit',
       year: 'numeric',
-      month: 'short',
-      day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-    });
+    }).format(date);
   } catch {
     return dateStr;
   }
 }
 
-function getStatusBadgeColor(estado: string, isDark: boolean) {
-  const norm = (estado || '').toLowerCase();
-  if (norm.includes('abiert')) {
-    return { bg: isDark ? '#3b2505' : '#fef3c7', text: '#b45309', border: '#f59e0b' };
-  }
-  if (norm.includes('revis')) {
-    return { bg: isDark ? '#0c2847' : '#e0f2fe', text: '#0369a1', border: '#38bdf8' };
-  }
+function getStatusBadgeColor(status: string) {
+  const norm = status?.toLowerCase() || '';
   if (norm.includes('resuelt') || norm.includes('cerrad')) {
-    return { bg: isDark ? '#06301d' : '#dcfce7', text: '#15803d', border: '#22c55e' };
+    return { bg: '#dcfce7', text: '#15803d', border: '#4ade80' };
   }
-  return { bg: isDark ? '#262626' : '#f3f4f6', text: '#4b5563', border: '#9ca3af' };
+  if (norm.includes('revis') || norm.includes('proceso') || norm.includes('curso')) {
+    return { bg: '#e0f2fe', text: '#0284c7', border: '#38bdf8' };
+  }
+  return { bg: '#fee2e2', text: '#dc2626', border: '#f87171' };
 }
 
 function getNextIncidentStatuses(estado: string): string[] {
@@ -868,18 +1064,87 @@ function getNextIncidentStatuses(estado: string): string[] {
   }
 }
 
-function getPriorityBadgeColor(prioridad: string, isDark: boolean) {
-  const norm = (prioridad || '').toLowerCase();
-  if (norm.includes('alta') || norm.includes('urgente')) {
-    return { bg: isDark ? '#3c1414' : '#fee2e2', text: '#b91c1c', border: '#f87171' };
+function getPriorityBadgeColor(priority: string) {
+  const norm = priority?.toLowerCase() || '';
+  if (norm.includes('alt') || norm.includes('urgente')) {
+    return { bg: '#fee2e2', text: '#dc2626', border: '#f87171' };
   }
-  if (norm.includes('media')) {
-    return { bg: isDark ? '#35290a' : '#fef9c3', text: '#a16207', border: '#facc15' };
+  if (norm.includes('med')) {
+    return { bg: '#fef9c3', text: '#a16207', border: '#facc15' };
   }
-  return { bg: isDark ? '#143022' : '#dcfce7', text: '#15803d', border: '#4ade80' };
+  return { bg: '#dcfce7', text: '#15803d', border: '#4ade80' };
 }
 
 const styles = StyleSheet.create({
+  mapScreen: {
+    flex: 1,
+  },
+  mapBanner: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  mapBannerBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  viewToggle: {
+    position: 'absolute',
+    right: Spacing.three,
+    height: 44,
+    paddingHorizontal: Spacing.three,
+    borderRadius: 22,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  fab: {
+    position: 'absolute',
+    minWidth: 56,
+    height: 56,
+    borderRadius: 28,
+    paddingHorizontal: Spacing.three,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.two,
+    backgroundColor: Brand.orange,
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 5,
+  },
+  fabIcon: {
+    color: Brand.white,
+    fontSize: 30,
+    lineHeight: 32,
+    fontWeight: '500',
+  },
+  fabLabel: {
+    color: Brand.white,
+    fontSize: 15,
+    fontWeight: '700',
+  },
   scrollView: {
     flex: 1,
   },
@@ -907,7 +1172,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   createButton: {
-    backgroundColor: '#16a34a',
+    backgroundColor: Brand.orange,
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
     borderRadius: Spacing.four,
@@ -919,7 +1184,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   refreshButton: {
-    backgroundColor: '#3c87f7',
+    backgroundColor: Brand.blue,
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
     borderRadius: Spacing.four,
@@ -998,7 +1263,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   idBadge: {
-    backgroundColor: '#3c87f7',
+    backgroundColor: Brand.blue,
     paddingHorizontal: Spacing.two,
     paddingVertical: 2,
     borderRadius: Spacing.two,
@@ -1036,19 +1301,30 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  backButton: {
-    alignSelf: 'flex-start',
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.two,
-  },
-  backButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  detailHeader: {
-    gap: Spacing.half,
+  detailHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
     paddingHorizontal: Spacing.two,
     marginBottom: Spacing.two,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Brand.blue,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backButtonIcon: {
+    color: '#ffffff',
+    fontSize: 22,
+    lineHeight: 26,
+    fontWeight: '700',
+  },
+  detailHeader: {
+    flex: 1,
+    gap: Spacing.half,
   },
   detailContainer: {
     gap: Spacing.four,
@@ -1061,7 +1337,7 @@ const styles = StyleSheet.create({
   },
   cardSectionTitle: {
     letterSpacing: 0.8,
-    color: '#3c87f7',
+    color: Brand.blue,
     marginBottom: Spacing.one,
   },
   attributeRow: {
@@ -1085,6 +1361,21 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     fontSize: 15,
     backgroundColor: 'transparent',
+  },
+  detailMapWrapper: {
+    marginVertical: Spacing.two,
+    gap: Spacing.one,
+  },
+  detailMapContainer: {
+    height: 240,
+    borderRadius: Spacing.two,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: '#e2e8f0',
+  },
+  mapHintText: {
+    fontSize: 12,
+    fontStyle: 'italic',
   },
   commentInput: {
     minHeight: 88,
@@ -1172,13 +1463,13 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#3c87f7',
+    backgroundColor: Brand.blue,
     marginTop: 4,
   },
   timelineLine: {
     flex: 1,
     width: 2,
-    backgroundColor: '#3c87f7',
+    backgroundColor: Brand.blue,
     opacity: 0.4,
     marginTop: 4,
   },

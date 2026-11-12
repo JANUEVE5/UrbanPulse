@@ -28,6 +28,15 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class IncidentServiceImpl implements IncidentService {
 
+    @Override
+    public List<IncidentDTO> getMyIncidents(Integer creatorId) {
+        // Busca incidentes del creador ordenados por fecha de creación descendente
+        return incidentRepository.findByCreadorIdOrderByCreatedAtDesc(creatorId)
+                .stream()
+                .map(IncidentDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
     private final IncidentRepository incidentRepository;
     private final StatusChangeRepository statusChangeRepository;
     private final AppUserRepository appUserRepository;
@@ -46,14 +55,6 @@ public class IncidentServiceImpl implements IncidentService {
     }
 
     @Override
-    public List<IncidentDTO> getAllIncidents() {
-        return incidentRepository.findAll()
-                .stream()
-                .map(IncidentDTO::fromEntity)
-                .collect(Collectors.toList());
-    }
-
-    @Override
     public Optional<IncidentDTO> getIncidentById(Integer id) {
         return incidentRepository.findById(id)
                 .map(incident -> {
@@ -65,11 +66,12 @@ public class IncidentServiceImpl implements IncidentService {
 
     @Override
     @Transactional
-    public IncidentDTO createIncident(CreateIncidentRequest request) {
-        AppUser creator = appUserRepository.findFirstByOrderByIdAsc()
+    public IncidentDTO createIncident(CreateIncidentRequest request, Integer creatorId) {
+        // El creador es el usuario del token (RF01); si ya no existe, el token no es válido
+        AppUser creator = appUserRepository.findById(creatorId)
                 .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.CONFLICT,
-                        "No se puede registrar una incidencia porque no hay usuarios registrados."
+                        HttpStatus.UNAUTHORIZED,
+                        "El usuario autenticado ya no existe."
                 ));
 
         String title = request.getTitulo().trim();
@@ -83,6 +85,8 @@ public class IncidentServiceImpl implements IncidentService {
         incident.setDescripcion(description);
         incident.setCategoria(category);
         incident.setReporteCentral(description);
+        incident.setLatitud(request.getLatitud());
+        incident.setLongitud(request.getLongitud());
         incident.setEstado("Abierta");
         incident.setPrioridad(request.getPrioridad() == null ? "Media" : request.getPrioridad());
         incident.setCreador(creator);
@@ -92,7 +96,7 @@ public class IncidentServiceImpl implements IncidentService {
 
     @Override
     @Transactional
-    public IncidentDTO updateIncidentStatus(Integer id, UpdateIncidentStatusRequest request) {
+    public IncidentDTO updateIncidentStatus(Integer id, UpdateIncidentStatusRequest request, Integer actorId) {
         Incident incident = incidentRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
@@ -115,10 +119,10 @@ public class IncidentServiceImpl implements IncidentService {
             );
         }
 
-        AppUser actor = appUserRepository.findFirstByOrderByIdAsc()
+        AppUser actor = appUserRepository.findById(actorId)
                 .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.CONFLICT,
-                        "No se puede registrar el cambio porque no hay usuarios registrados."
+                        HttpStatus.UNAUTHORIZED,
+                        "El usuario autenticado ya no existe."
                 ));
 
         String motivo = request.getMotivo() == null || request.getMotivo().isBlank()
@@ -155,16 +159,16 @@ public class IncidentServiceImpl implements IncidentService {
 
     @Override
     @Transactional
-    public IncidentDTO createIncidentComment(Integer id, CreateIncidentCommentRequest request) {
+    public IncidentDTO createIncidentComment(Integer id, CreateIncidentCommentRequest request, Integer actorId) {
         Incident incident = incidentRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "No existe la incidencia con identificador " + id + "."
                 ));
-        AppUser actor = appUserRepository.findFirstByOrderByIdAsc()
+        AppUser actor = appUserRepository.findById(actorId)
                 .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.CONFLICT,
-                        "No se puede registrar el comentario porque no hay usuarios registrados."
+                        HttpStatus.UNAUTHORIZED,
+                        "El usuario autenticado ya no existe."
                 ));
 
         incidentCommentRepository.save(new IncidentComment(

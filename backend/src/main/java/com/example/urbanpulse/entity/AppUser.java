@@ -3,6 +3,8 @@ package com.example.urbanpulse.entity;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -24,23 +26,27 @@ public class AppUser {
     private String correo;
 
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
-    @Column(name = "contraseña", nullable = false, length = 255)
-    private String contrasena;
+    @Column(name = "password", nullable = false, length = 255)
+    private String password;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "rol", nullable = false, length = 20)
+    private Rol rol = Rol.CITIZEN;
 
     public AppUser() {
     }
 
-    public AppUser(String nombre, String correo, String contrasena) {
+    public AppUser(String nombre, String correo, String password) {
         this.nombre = nombre;
         this.correo = correo;
-        this.contrasena = contrasena;
+        this.password = password;
     }
 
-    public AppUser(Integer id, String nombre, String correo, String contrasena) {
+    public AppUser(Integer id, String nombre, String correo, String password) {
         this.id = id;
         this.nombre = nombre;
         this.correo = correo;
-        this.contrasena = contrasena;
+        this.password = password;
     }
 
     public Integer getId() {
@@ -67,11 +73,19 @@ public class AppUser {
         this.correo = correo;
     }
 
-    public String getContrasena() {
-        return contrasena;
+    public String getPassword() {
+        return password;
     }
 
-    public void setContrasena(String contrasena) {
-        this.contrasena = contrasena;
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public Rol getRol() {
+        return rol;
+    }
+
+    public void setRol(Rol rol) {
+        this.rol = rol;
     }
 }

@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { apiRequest } from '@/services/apiClient';
 
 export interface StatusChange {
   id: number;
@@ -26,6 +26,8 @@ export interface Incident {
   urbanAssetId?: number | null;
   urbanAssetTipo?: string | null;
   localizacion?: string | null;
+  latitud?: number | null;
+  longitud?: number | null;
   estado: string;
   prioridad: string;
   idCreador: number;
@@ -38,18 +40,13 @@ export interface Incident {
 
 export type IncidentPriority = 'Baja' | 'Media' | 'Alta';
 
-const DEFAULT_API_URL = Platform.select({
-  android: 'http://10.0.2.2:8080/api',
-  default: 'http://localhost:8080/api',
-});
-
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || DEFAULT_API_URL;
-
 export interface CreateIncidentInput {
   titulo: string;
   descripcion: string;
   categoria?: string;
   prioridad?: IncidentPriority;
+  latitud: number;
+  longitud: number;
 }
 
 export interface UpdateIncidentPriorityInput {
@@ -61,194 +58,53 @@ export interface UpdateIncidentStatusInput {
   motivo?: string;
 }
 
-/**
- * Obtiene todas las incidencias registradas en el backend.
- */
-export async function getIncidents(): Promise<Incident[]> {
-  const url = `${API_BASE_URL}/incidents`;
-  try {
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Error ${response.status}: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error: any) {
-    console.error('Error fetching incidents from:', url, error);
-    if (error?.message?.includes('NetworkError') || error?.name === 'TypeError') {
-      throw new Error(
-        `No se pudo conectar con el servidor en ${url}. Verifica que el backend Spring Boot esté reiniciado y en ejecución.`
-      );
-    }
-    throw error;
-  }
+/** Incidencias del usuario autenticado. */
+export function getIncidents(): Promise<Incident[]> {
+  return apiRequest<Incident[]>('/incidents');
 }
 
-/**
- * Obtiene el detalle de una incidencia por su identificador.
- */
-export async function getIncidentById(id: number): Promise<Incident> {
-  const url = `${API_BASE_URL}/incidents/${id}`;
-  try {
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-      },
-    });
-
-    if (response.status === 404) {
-      throw new Error(`Incidencia #${id} no encontrada.`);
-    }
-
-    if (!response.ok) {
-      throw new Error(`Error ${response.status}: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error: any) {
-    console.error(`Error fetching incident #${id} from:`, url, error);
-    if (error?.message?.includes('NetworkError') || error?.name === 'TypeError') {
-      throw new Error(
-        `No se pudo conectar con el servidor en ${url}. Verifica que el backend Spring Boot esté reiniciado y en ejecución.`
-      );
-    }
-    throw error;
-  }
+/** Detalle de una incidencia con su historial (público). */
+export function getIncidentById(id: number): Promise<Incident> {
+  return apiRequest<Incident>(`/incidents/${id}`, {
+    errorMessages: { 404: `La incidencia #${id} no existe.` },
+  });
 }
 
-/**
- * Registra una incidencia y devuelve el recurso creado.
- */
-export async function createIncident(input: CreateIncidentInput): Promise<Incident> {
-  const url = `${API_BASE_URL}/incidents`;
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(input),
-    });
-
-    if (!response.ok) {
-      const responseBody = await response.text();
-      throw new Error(responseBody || `Error ${response.status}: ${response.statusText}`);
-    }
-
-    return await response.json();
-  } catch (error: unknown) {
-    console.error('Error creating incident at:', url, error);
-    if (error instanceof TypeError) {
-      throw new Error(
-        `No se pudo conectar con el servidor en ${url}. Verifica que el backend Spring Boot esté reiniciado y en ejecución.`
-      );
-    }
-    throw error;
-  }
+/** Registra una incidencia a nombre del usuario con sesión iniciada (requiere token). */
+export function createIncident(input: CreateIncidentInput): Promise<Incident> {
+  return apiRequest<Incident>('/incidents', {
+    method: 'POST',
+    body: input,
+    errorMessages: { 401: 'Inicia sesión para registrar una incidencia.' },
+  });
 }
 
 /**
  * Actualiza el estado de una incidencia y devuelve su historial actualizado.
  */
-export async function updateIncidentStatus(
+export function updateIncidentStatus(
   id: number,
   input: UpdateIncidentStatusInput
 ): Promise<Incident> {
-  const url = `${API_BASE_URL}/incidents/${id}/status`;
-  try {
-    const response = await fetch(url, {
-      method: 'PATCH',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(input),
-    });
-
-    if (!response.ok) {
-      const responseBody = await response.text();
-      throw new Error(responseBody || `Error ${response.status}: ${response.statusText}`);
-    }
-
-    return await response.json();
-  } catch (error: unknown) {
-    console.error(`Error updating status for incident #${id} at:`, url, error);
-    if (error instanceof TypeError) {
-      throw new Error(
-        `No se pudo conectar con el servidor en ${url}. Verifica que el backend Spring Boot esté reiniciado y en ejecución.`
-      );
-    }
-    throw error;
-  }
+  return apiRequest<Incident>(`/incidents/${id}/status`, {
+    method: 'PATCH',
+    body: input,
+  });
 }
 
-export async function updateIncidentPriority(
+export function updateIncidentPriority(
   id: number,
   input: UpdateIncidentPriorityInput
 ): Promise<Incident> {
-  const url = `${API_BASE_URL}/incidents/${id}/priority`;
-  try {
-    const response = await fetch(url, {
-      method: 'PATCH',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(input),
-    });
-
-    if (!response.ok) {
-      const responseBody = await response.text();
-      throw new Error(responseBody || `Error ${response.status}: ${response.statusText}`);
-    }
-
-    return await response.json();
-  } catch (error: unknown) {
-    console.error(`Error updating priority for incident #${id} at:`, url, error);
-    if (error instanceof TypeError) {
-      throw new Error(
-        `No se pudo conectar con el servidor en ${url}. Verifica que el backend Spring Boot esté reiniciado y en ejecución.`
-      );
-    }
-    throw error;
-  }
+  return apiRequest<Incident>(`/incidents/${id}/priority`, {
+    method: 'PATCH',
+    body: input,
+  });
 }
 
-export async function addIncidentComment(id: number, contenido: string): Promise<Incident> {
-  const url = `${API_BASE_URL}/incidents/${id}/comments`;
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ contenido }),
-    });
-
-    if (!response.ok) {
-      const responseBody = await response.text();
-      throw new Error(responseBody || `Error ${response.status}: ${response.statusText}`);
-    }
-
-    return await response.json();
-  } catch (error: unknown) {
-    console.error(`Error adding comment to incident #${id} at:`, url, error);
-    if (error instanceof TypeError) {
-      throw new Error(
-        `No se pudo conectar con el servidor en ${url}. Verifica que el backend Spring Boot esté reiniciado y en ejecución.`
-      );
-    }
-    throw error;
-  }
+export function addIncidentComment(id: number, contenido: string): Promise<Incident> {
+  return apiRequest<Incident>(`/incidents/${id}/comments`, {
+    method: 'POST',
+    body: { contenido },
+  });
 }

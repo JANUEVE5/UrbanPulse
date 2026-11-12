@@ -1,31 +1,113 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Platform,
   Pressable,
   StyleSheet,
   TextInput,
   View,
 } from 'react-native';
+import * as Location from 'expo-location';
 
+import IncidentMapView from '@/components/IncidentMapView';
+import type { Coordinate, MapHandle, MapPressEvent } from '@/components/incident-map-view.types';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Brand, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { createIncident, IncidentPriority } from '@/services/incidentService';
+import { createIncident, type IncidentPriority } from '@/services/incidentService';
 
 interface CreateIncidentFormProps {
   onCancel: () => void;
   onCreated: () => Promise<void>;
 }
 
+const INITIAL_REGION = {
+  latitude: 36.721274,
+  longitude: -4.421399,
+  latitudeDelta: 0.015,
+  longitudeDelta: 0.015,
+};
+
+const PRIORITIES = [
+  { label: 'Baja', value: 'Baja', color: '#10b981' },
+  { label: 'Media', value: 'Media', color: '#f59e0b' },
+  { label: 'Alta', value: 'Alta', color: '#ef4444' },
+] as const;
+
+/** Muestra un aviso: alert() en web y Alert.alert() en nativo. */
+function showMessage(title: string, message: string) {
+  if (Platform.OS === 'web') {
+    alert(message);
+  } else {
+    Alert.alert(title, message);
+  }
+}
+
 export function CreateIncidentForm({ onCancel, onCreated }: CreateIncidentFormProps) {
   const theme = useTheme();
+  const mapRef = useRef<MapHandle | null>(null);
+
   const [titulo, setTitulo] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [categoria, setCategoria] = useState('');
   const [prioridad, setPrioridad] = useState<IncidentPriority>('Media');
+  const [selectedCoordinate, setSelectedCoordinate] = useState<Coordinate | null>(null);
+
+  const [region, setRegion] = useState(INITIAL_REGION);
+  const [isLocating, setIsLocating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Manejador al tocar en el mapa
+  const handleMapPress = (event: MapPressEvent) => {
+    const coordinate = event.nativeEvent.coordinate;
+    if (coordinate) {
+      setSelectedCoordinate(coordinate);
+    }
+  };
+
+  // Geolocalización con expo-location
+  const handleGetCurrentLocation = async () => {
+    try {
+      setIsLocating(true);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+
+      if (status !== 'granted') {
+        const msg = 'Se requiere permiso de ubicación para situar la incidencia en tu posición.';
+        showMessage('Permiso denegado', msg);
+        return;
+      }
+
+      const currentLocation = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+
+      const newCoord = {
+        latitude: currentLocation.coords.latitude,
+        longitude: currentLocation.coords.longitude,
+      };
+
+      setSelectedCoordinate(newCoord);
+
+      const targetRegion = {
+        latitude: newCoord.latitude,
+        longitude: newCoord.longitude,
+        latitudeDelta: 0.005,
+        longitudeDelta: 0.005,
+      };
+
+      setRegion(targetRegion);
+      mapRef.current?.animateToRegion(targetRegion);
+    } catch (err) {
+      console.error('Error al obtener la posición actual:', err);
+      const msg = 'No se pudo obtener la ubicación actual del dispositivo.';
+      showMessage('Error', msg);
+    } finally {
+      setIsLocating(false);
+    }
+  };
 
   const handleSubmit = async () => {
     const cleanTitle = titulo.trim();
@@ -33,6 +115,11 @@ export function CreateIncidentForm({ onCancel, onCreated }: CreateIncidentFormPr
 
     if (!cleanTitle || !cleanDescription) {
       setError('El título y la descripción son obligatorios.');
+      return;
+    }
+
+    if (!selectedCoordinate) {
+      setError('Selecciona en el mapa la ubicación de la incidencia.');
       return;
     }
 
@@ -44,6 +131,8 @@ export function CreateIncidentForm({ onCancel, onCreated }: CreateIncidentFormPr
         descripcion: cleanDescription,
         ...(categoria.trim() ? { categoria: categoria.trim() } : {}),
         prioridad,
+        latitud: selectedCoordinate.latitude,
+        longitud: selectedCoordinate.longitude,
       });
       await onCreated();
     } catch (submitError: unknown) {
@@ -62,18 +151,90 @@ export function CreateIncidentForm({ onCancel, onCreated }: CreateIncidentFormPr
       <View style={styles.header}>
         <ThemedText type="subtitle">Registrar incidencia</ThemedText>
         <ThemedText type="small" themeColor="textSecondary">
-          Describe el problema urbano para que pueda ser gestionado.
+          Selecciona la ubicación en el mapa (OpenStreetMap con Leaflet) y completa los datos.
         </ThemedText>
       </View>
 
       <ThemedView type="backgroundElement" style={styles.form}>
+        {/* Mapa Leaflet (Web) / react-native-maps (Nativo) */}
+        <View style={styles.mapContainer}>
+          <IncidentMapView
+            mapRef={mapRef}
+            initialRegion={INITIAL_REGION}
+            region={region}
+            onPress={handleMapPress}
+            selectedCoordinate={selectedCoordinate}
+          />
+
+          {/* Botón flotante para obtener ubicación actual */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.locationButton,
+              pressed && styles.pressed,
+            ]}
+            onPress={handleGetCurrentLocation}
+            disabled={isLocating}>
+            {isLocating ? (
+              <ActivityIndicator size="small" color="#ffffff" />
+            ) : (
+              <ThemedText type="smallBold" style={styles.locationButtonText}>
+                📍 Mi ubicación
+              </ThemedText>
+            )}
+          </Pressable>
+        </View>
+
+        {/* Indicador de coordenadas */}
+        <View style={[styles.coordsCard, { borderColor: theme.backgroundSelected }]}>
+          <ThemedText type="smallBold" themeColor="textSecondary">
+            Coordenadas en el mapa:
+          </ThemedText>
+          <ThemedText type="small" style={styles.coordsValue}>
+            {selectedCoordinate
+              ? `Lat: ${selectedCoordinate.latitude.toFixed(6)}, Lon: ${selectedCoordinate.longitude.toFixed(6)}`
+              : 'Toca en el mapa para marcar la ubicación'}
+          </ThemedText>
+        </View>
+
+        {/* Selector de Prioridad */}
+        <View style={styles.field}>
+          <ThemedText type="smallBold">Prioridad</ThemedText>
+          <View style={styles.prioritySelector}>
+            {PRIORITIES.map((item) => {
+              const isSelected = prioridad === item.value;
+              return (
+                <Pressable
+                  key={item.value}
+                  style={[
+                    styles.priorityOption,
+                    { borderColor: theme.backgroundSelected },
+                    isSelected && {
+                      backgroundColor: item.color,
+                      borderColor: item.color,
+                    },
+                  ]}
+                  onPress={() => setPrioridad(item.value)}>
+                  <ThemedText
+                    type="smallBold"
+                    style={[
+                      styles.priorityText,
+                      isSelected && styles.priorityTextActive,
+                    ]}>
+                    {item.label}
+                  </ThemedText>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
         <View style={styles.field}>
           <ThemedText type="smallBold">Título *</ThemedText>
           <TextInput
             accessibilityLabel="Título de la incidencia"
             value={titulo}
             onChangeText={setTitulo}
-            placeholder="Ej. Bache en la calzada"
+            placeholder="Ej. Farola apagada en acera"
             placeholderTextColor={theme.textSecondary}
             maxLength={100}
             returnKeyType="next"
@@ -90,7 +251,7 @@ export function CreateIncidentForm({ onCancel, onCreated }: CreateIncidentFormPr
             accessibilityLabel="Descripción de la incidencia"
             value={descripcion}
             onChangeText={setDescripcion}
-            placeholder="Indica qué ocurre y dónde se encuentra."
+            placeholder="Indica qué ocurre, elementos afectados y detalles relevantes."
             placeholderTextColor={theme.textSecondary}
             maxLength={400}
             multiline
@@ -107,36 +268,12 @@ export function CreateIncidentForm({ onCancel, onCreated }: CreateIncidentFormPr
         </View>
 
         <View style={styles.field}>
-          <ThemedText type="smallBold">Prioridad</ThemedText>
-          <View style={styles.priorityOptions}>
-            {(['Baja', 'Media', 'Alta'] as const).map((option) => (
-              <Pressable
-                key={option}
-                accessibilityRole="button"
-                accessibilityState={{ selected: prioridad === option }}
-                onPress={() => setPrioridad(option)}
-                style={({ pressed }) => [
-                  styles.priorityOption,
-                  prioridad === option && styles.priorityOptionSelected,
-                  pressed && styles.pressed,
-                ]}>
-                <ThemedText
-                  type="smallBold"
-                  style={prioridad === option ? styles.priorityOptionSelectedText : undefined}>
-                  {option}
-                </ThemedText>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.field}>
           <ThemedText type="smallBold">Categoría (opcional)</ThemedText>
           <TextInput
             accessibilityLabel="Categoría de la incidencia"
             value={categoria}
             onChangeText={setCategoria}
-            placeholder="Ej. Alumbrado, tráfico, limpieza..."
+            placeholder="Ej. Alumbrado, mobiliario, residuos..."
             placeholderTextColor={theme.textSecondary}
             maxLength={50}
             returnKeyType="done"
@@ -193,27 +330,61 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.three,
     gap: Spacing.three,
   },
+  mapContainer: {
+    height: 280,
+    borderRadius: Spacing.two,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: '#e2e8f0',
+  },
+  locationButton: {
+    position: 'absolute',
+    bottom: 10,
+    right: 10,
+    backgroundColor: Brand.blue,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  locationButtonText: {
+    color: '#ffffff',
+    fontSize: 12,
+  },
+  coordsCard: {
+    padding: Spacing.two,
+    borderRadius: Spacing.two,
+    borderWidth: 1,
+    gap: 2,
+  },
+  coordsValue: {
+    fontWeight: '500',
+  },
   field: {
     gap: Spacing.one,
   },
-  priorityOptions: {
+  prioritySelector: {
     flexDirection: 'row',
     gap: Spacing.two,
+    marginTop: 2,
   },
   priorityOption: {
-    minHeight: 44,
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#9ca3af',
+    paddingVertical: 8,
     borderRadius: Spacing.two,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    backgroundColor: 'transparent',
   },
-  priorityOptionSelected: {
-    backgroundColor: '#3c87f7',
-    borderColor: '#3c87f7',
+  priorityText: {
+    fontSize: 13,
   },
-  priorityOptionSelectedText: {
+  priorityTextActive: {
     color: '#ffffff',
   },
   input: {
@@ -226,7 +397,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   descriptionInput: {
-    minHeight: 130,
+    minHeight: 110,
   },
   errorBox: {
     padding: Spacing.two,
@@ -255,7 +426,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: Spacing.three,
     borderRadius: Spacing.two,
-    backgroundColor: '#16a34a',
+    backgroundColor: Brand.orange,
   },
   submitButtonText: {
     color: '#ffffff',

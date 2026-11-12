@@ -23,6 +23,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -69,11 +70,11 @@ class IncidentServiceTest {
     }
 
     @Test
-    @DisplayName("getAllIncidents retorna la lista de incidencias en formato DTO")
-    void testGetAllIncidents() {
-        when(incidentRepository.findAll()).thenReturn(List.of(testIncident));
+    @DisplayName("getMyIncidents retorna las incidencias del creador en formato DTO")
+    void testGetMyIncidents() {
+        when(incidentRepository.findByCreadorIdOrderByCreatedAtDesc(1)).thenReturn(List.of(testIncident));
 
-        List<IncidentDTO> result = incidentService.getAllIncidents();
+        List<IncidentDTO> result = incidentService.getMyIncidents(1);
 
         assertNotNull(result);
         assertEquals(1, result.size());
@@ -87,7 +88,7 @@ class IncidentServiceTest {
         assertEquals("Semáforo", dto.getUrbanAssetTipo());
         assertEquals(1, dto.getIdCreador());
         assertEquals("Ana García", dto.getNombreCreador());
-        verify(incidentRepository, times(1)).findAll();
+        verify(incidentRepository).findByCreadorIdOrderByCreatedAtDesc(1);
     }
 
     @Test
@@ -134,8 +135,10 @@ class IncidentServiceTest {
         request.setDescripcion("  Hay un bache frente al número 12.  ");
         request.setCategoria("  Vía pública  ");
         request.setPrioridad("Alta");
+        request.setLatitud(new BigDecimal("36.721274"));
+        request.setLongitud(new BigDecimal("-4.421399"));
 
-        when(appUserRepository.findFirstByOrderByIdAsc()).thenReturn(Optional.of(testUser));
+        when(appUserRepository.findById(1)).thenReturn(Optional.of(testUser));
         when(incidentRepository.save(any(Incident.class))).thenAnswer(invocation -> {
             Incident saved = invocation.getArgument(0);
             saved.setId(2);
@@ -143,7 +146,7 @@ class IncidentServiceTest {
             return saved;
         });
 
-        IncidentDTO result = incidentService.createIncident(request);
+        IncidentDTO result = incidentService.createIncident(request, 1);
 
         assertEquals(2, result.getId());
         assertEquals("Bache en la calzada", result.getTitulo());
@@ -152,6 +155,8 @@ class IncidentServiceTest {
         assertEquals("Abierta", result.getEstado());
         assertEquals("Alta", result.getPrioridad());
         assertEquals(1, result.getIdCreador());
+        assertEquals(new BigDecimal("36.721274"), result.getLatitud());
+        assertEquals(new BigDecimal("-4.421399"), result.getLongitud());
         verify(incidentRepository).save(any(Incident.class));
     }
 
@@ -161,15 +166,17 @@ class IncidentServiceTest {
         CreateIncidentRequest request = new CreateIncidentRequest();
         request.setTitulo("Alumbrado apagado");
         request.setDescripcion("La farola no enciende.");
+        request.setLatitud(new BigDecimal("36.7"));
+        request.setLongitud(new BigDecimal("-4.4"));
 
-        when(appUserRepository.findFirstByOrderByIdAsc()).thenReturn(Optional.of(testUser));
+        when(appUserRepository.findById(1)).thenReturn(Optional.of(testUser));
         when(incidentRepository.save(any(Incident.class))).thenAnswer(invocation -> {
             Incident saved = invocation.getArgument(0);
             saved.setId(2);
             return saved;
         });
 
-        IncidentDTO result = incidentService.createIncident(request);
+        IncidentDTO result = incidentService.createIncident(request, 1);
 
         assertNull(result.getCategoria());
     }
@@ -187,11 +194,11 @@ class IncidentServiceTest {
         statusChange.setInstante(LocalDateTime.now());
 
         when(incidentRepository.findByIdForUpdate(1)).thenReturn(Optional.of(testIncident));
-        when(appUserRepository.findFirstByOrderByIdAsc()).thenReturn(Optional.of(testUser));
+        when(appUserRepository.findById(1)).thenReturn(Optional.of(testUser));
         when(incidentRepository.save(testIncident)).thenReturn(testIncident);
         when(statusChangeRepository.findByIncidentIdOrderByInstanteAsc(1)).thenReturn(List.of(statusChange));
 
-        IncidentDTO result = incidentService.updateIncidentStatus(1, request);
+        IncidentDTO result = incidentService.updateIncidentStatus(1, request, 1);
 
         assertEquals("En revisión", result.getEstado());
         assertEquals(1, result.getHistorial().size());
@@ -215,7 +222,7 @@ class IncidentServiceTest {
 
         org.springframework.web.server.ResponseStatusException exception = assertThrows(
                 org.springframework.web.server.ResponseStatusException.class,
-                () -> incidentService.updateIncidentStatus(1, request)
+                () -> incidentService.updateIncidentStatus(1, request, 1)
         );
 
         assertEquals(org.springframework.http.HttpStatus.CONFLICT, exception.getStatusCode());
@@ -233,7 +240,7 @@ class IncidentServiceTest {
 
         org.springframework.web.server.ResponseStatusException exception = assertThrows(
                 org.springframework.web.server.ResponseStatusException.class,
-                () -> incidentService.updateIncidentStatus(1, request)
+                () -> incidentService.updateIncidentStatus(1, request, 1)
         );
 
         assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST, exception.getStatusCode());
@@ -257,10 +264,12 @@ class IncidentServiceTest {
         CreateIncidentRequest request = new CreateIncidentRequest();
         request.setTitulo("Alumbrado apagado");
         request.setDescripcion("La farola no enciende.");
-        when(appUserRepository.findFirstByOrderByIdAsc()).thenReturn(Optional.of(testUser));
+        request.setLatitud(new BigDecimal("36.7"));
+        request.setLongitud(new BigDecimal("-4.4"));
+        when(appUserRepository.findById(1)).thenReturn(Optional.of(testUser));
         when(incidentRepository.save(any(Incident.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        assertEquals("Media", incidentService.createIncident(request).getPrioridad());
+        assertEquals("Media", incidentService.createIncident(request, 1).getPrioridad());
     }
 
     @Test
@@ -291,11 +300,11 @@ class IncidentServiceTest {
         comment.setCreatedAt(LocalDateTime.now());
         when(incidentRepository.findByIdForUpdate(1)).thenReturn(Optional.of(testIncident));
         when(incidentRepository.findById(1)).thenReturn(Optional.of(testIncident));
-        when(appUserRepository.findFirstByOrderByIdAsc()).thenReturn(Optional.of(testUser));
+        when(appUserRepository.findById(1)).thenReturn(Optional.of(testUser));
         when(incidentCommentRepository.findByIncidentIdOrderByCreatedAtAsc(1)).thenReturn(List.of(comment));
         when(statusChangeRepository.findByIncidentIdOrderByInstanteAsc(1)).thenReturn(List.of());
 
-        IncidentDTO result = incidentService.createIncidentComment(1, request);
+        IncidentDTO result = incidentService.createIncidentComment(1, request, 1);
 
         assertEquals(1, result.getComentarios().size());
         assertEquals("Ya se ha avisado al equipo municipal.", result.getComentarios().get(0).getContenido());

@@ -11,7 +11,9 @@ CREATE TABLE "User" (
                         id              INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
                         nombre          VARCHAR(100) NOT NULL,
                         correo          VARCHAR(150) NOT NULL UNIQUE,
-                        contraseña      VARCHAR(255) NOT NULL
+                        password      VARCHAR(255) NOT NULL,
+                        rol             VARCHAR(20)  NOT NULL DEFAULT 'CITIZEN'
+                                        CHECK (rol IN ('CITIZEN', 'OPERATOR', 'TECHNICIAN', 'ADMIN', 'ANALYST'))
 );
 
 CREATE TABLE "UrbanAsset" (
@@ -27,6 +29,8 @@ CREATE TABLE "Incident" (
                             reporte_central VARCHAR(400) NOT NULL,
                             urban_asset_id  INTEGER REFERENCES "UrbanAsset"(id),
                             localizacion    VARCHAR(200),
+                            latitud         NUMERIC(9,6) CHECK (latitud BETWEEN -90 AND 90),
+                            longitud        NUMERIC(9,6) CHECK (longitud BETWEEN -180 AND 180),
                             estado          VARCHAR(30) NOT NULL,
                             prioridad       VARCHAR(20) NOT NULL,
                             id_creador      INTEGER NOT NULL REFERENCES "User"(id),

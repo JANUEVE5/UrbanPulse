@@ -1,17 +1,17 @@
 package com.example.urbanpulse.controller;
 
-import com.example.urbanpulse.entity.AppUser;
+import com.example.urbanpulse.dto.UserDTO;
 import com.example.urbanpulse.repository.AppUserRepository;
-import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/** Gestión de usuarios: solo administración (RF02). */
 @RestController
 @RequestMapping("/api/users")
-@CrossOrigin(origins = "*")
 public class AppUserController {
 
     private final AppUserRepository appUserRepository;
@@ -20,9 +20,10 @@ public class AppUserController {
         this.appUserRepository = appUserRepository;
     }
 
+    /** Listado de usuarios con su rol (sin contraseñas). */
     @GetMapping
-    public List<AppUser> getAllUsers() {
-        return appUserRepository.findAll();
+    @PreAuthorize("hasRole('ADMIN')")
+    public List<UserDTO> getAllUsers() {
+        return appUserRepository.findAll().stream().map(UserDTO::fromEntity).toList();
     }
 }
-

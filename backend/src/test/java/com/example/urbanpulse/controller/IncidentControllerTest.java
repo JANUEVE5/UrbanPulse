@@ -1,5 +1,6 @@
 package com.example.urbanpulse.controller;
 
+import com.example.urbanpulse.config.SecurityConfig;
 import com.example.urbanpulse.dto.IncidentDTO;
 import com.example.urbanpulse.dto.CreateIncidentRequest;
 import com.example.urbanpulse.dto.StatusChangeDTO;
@@ -8,21 +9,26 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(IncidentController.class)
+@Import(SecurityConfig.class)
 class IncidentControllerTest {
 
     @Autowired
@@ -32,8 +38,8 @@ class IncidentControllerTest {
     private IncidentService incidentService;
 
     @Test
-    @DisplayName("GET /api/incidents debe retornar 200 OK con la lista de incidencias")
-    void testGetAllIncidents() throws Exception {
+    @DisplayName("GET /api/incidents debe retornar solo las incidencias del usuario autenticado")
+    void testGetMyIncidents() throws Exception {
         IncidentDTO dto = new IncidentDTO();
         dto.setId(1);
         dto.setReporteCentral("El semáforo no funciona.");
@@ -46,9 +52,9 @@ class IncidentControllerTest {
         dto.setNombreCreador("Ana García");
         dto.setCreatedAt(LocalDateTime.now());
 
-        when(incidentService.getAllIncidents()).thenReturn(List.of(dto));
+        when(incidentService.getMyIncidents(1)).thenReturn(List.of(dto));
 
-        mockMvc.perform(get("/api/incidents")
+        mockMvc.perform(get("/api/incidents").with(citizenToken())
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(1))
@@ -58,6 +64,23 @@ class IncidentControllerTest {
                 .andExpect(jsonPath("$[0].prioridad").value("Alta"))
                 .andExpect(jsonPath("$[0].urbanAssetTipo").value("Semáforo"))
                 .andExpect(jsonPath("$[0].nombreCreador").value("Ana García"));
+    }
+
+    @Test
+    @DisplayName("GET /api/incidents debe exigir autenticación")
+    void testGetMyIncidentsWithoutToken() throws Exception {
+        mockMvc.perform(get("/api/incidents"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("GET /api/incidents/mine conserva el listado filtrado por el usuario")
+    void testGetMyIncidentsAlias() throws Exception {
+        when(incidentService.getMyIncidents(1)).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/incidents/mine").with(citizenToken()))
+                .andExpect(status().isOk())
+                .andExpect(content().json("[]"));
     }
 
     @Test
@@ -108,35 +131,57 @@ class IncidentControllerTest {
         dto.setDescripcion("Hay un bache frente al número 12.");
         dto.setCategoria("Vía pública");
         dto.setReporteCentral("Hay un bache frente al número 12.");
+        dto.setLatitud(new java.math.BigDecimal("36.721274"));
+        dto.setLongitud(new java.math.BigDecimal("-4.421399"));
 
-        when(incidentService.createIncident(org.mockito.ArgumentMatchers.any(CreateIncidentRequest.class)))
+        when(incidentService.createIncident(org.mockito.ArgumentMatchers.any(CreateIncidentRequest.class), eq(1)))
                 .thenReturn(dto);
 
-        mockMvc.perform(post("/api/incidents")
+        mockMvc.perform(post("/api/incidents").with(citizenToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
                                   "titulo": "Bache en la calzada",
                                   "descripcion": "Hay un bache frente al número 12.",
-                                          "categoria": "Vía pública",
-                                          "prioridad": "Alta"
-                                        }
-                                        """))
+                                  "categoria": "Vía pública",
+                                  "prioridad": "Alta",
+                                  "latitud": 36.721274,
+                                  "longitud": -4.421399
+                                }
+                                """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(2))
                 .andExpect(jsonPath("$.titulo").value("Bache en la calzada"))
                 .andExpect(jsonPath("$.descripcion").value("Hay un bache frente al número 12."))
-                .andExpect(jsonPath("$.categoria").value("Vía pública"));
+                .andExpect(jsonPath("$.categoria").value("Vía pública"))
+                .andExpect(jsonPath("$.latitud").value(36.721274))
+                .andExpect(jsonPath("$.longitud").value(-4.421399));
     }
 
     @Test
     @DisplayName("POST /api/incidents debe rechazar título vacío")
     void testCreateIncidentWithBlankTitle() throws Exception {
-        mockMvc.perform(post("/api/incidents")
+        mockMvc.perform(post("/api/incidents").with(citizenToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
                                   "titulo": " ",
+                                  "descripcion": "Hay un bache.",
+                                  "latitud": 36.72,
+                                  "longitud": -4.42
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("POST /api/incidents debe rechazar una incidencia sin coordenadas (RF04)")
+    void testCreateIncidentWithoutCoordinates() throws Exception {
+        mockMvc.perform(post("/api/incidents").with(citizenToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "titulo": "Bache",
                                   "descripcion": "Hay un bache."
                                 }
                                 """))
@@ -155,10 +200,11 @@ class IncidentControllerTest {
 
         when(incidentService.updateIncidentStatus(
                 org.mockito.ArgumentMatchers.eq(1),
-                org.mockito.ArgumentMatchers.any()
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.eq(2)
         )).thenReturn(dto);
 
-        mockMvc.perform(patch("/api/incidents/1/status")
+        mockMvc.perform(patch("/api/incidents/1/status").with(operatorToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -174,11 +220,52 @@ class IncidentControllerTest {
     @Test
     @DisplayName("PATCH /api/incidents/{id}/status debe rechazar un estado vacío")
     void testUpdateIncidentStatusWithBlankStatus() throws Exception {
-        mockMvc.perform(patch("/api/incidents/1/status")
+        mockMvc.perform(patch("/api/incidents/1/status").with(operatorToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
                                   "estado": " "
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("PATCH /api/incidents/{id}/status debe denegar a ciudadanos")
+    void testCitizenCannotUpdateIncidentStatus() throws Exception {
+        mockMvc.perform(patch("/api/incidents/1/status").with(citizenToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "estado": "En revisión"
+                                }
+                                """))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("POST /api/incidents debe rechazar coordenadas fuera de rango (RF04)")
+    void testCreateIncidentWithOutOfRangeCoordinates() throws Exception {
+        mockMvc.perform(post("/api/incidents").with(citizenToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "titulo": "Bache",
+                                  "descripcion": "Hay un bache.",
+                                  "latitud": 120.0,
+                                  "longitud": -4.42
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(post("/api/incidents").with(citizenToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "titulo": "Bache",
+                                  "descripcion": "Hay un bache.",
+                                  "latitud": 36.72,
+                                  "longitud": -181.0
                                 }
                                 """))
                 .andExpect(status().isBadRequest());
@@ -195,7 +282,7 @@ class IncidentControllerTest {
                 org.mockito.ArgumentMatchers.any()
         )).thenReturn(dto);
 
-        mockMvc.perform(patch("/api/incidents/1/priority")
+        mockMvc.perform(patch("/api/incidents/1/priority").with(operatorToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -209,7 +296,7 @@ class IncidentControllerTest {
     @Test
     @DisplayName("PATCH /api/incidents/{id}/priority debe rechazar prioridades desconocidas")
     void testUpdateIncidentPriorityRejectsUnknownValue() throws Exception {
-        mockMvc.perform(patch("/api/incidents/1/priority")
+        mockMvc.perform(patch("/api/incidents/1/priority").with(operatorToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -220,16 +307,30 @@ class IncidentControllerTest {
     }
 
     @Test
+    @DisplayName("PATCH /api/incidents/{id}/priority debe denegar a ciudadanos")
+    void testCitizenCannotUpdateIncidentPriority() throws Exception {
+        mockMvc.perform(patch("/api/incidents/1/priority").with(citizenToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "prioridad": "Alta"
+                                }
+                                """))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     @DisplayName("POST /api/incidents/{id}/comments debe añadir un comentario")
     void testCreateIncidentComment() throws Exception {
         IncidentDTO dto = new IncidentDTO();
         dto.setId(1);
         when(incidentService.createIncidentComment(
                 org.mockito.ArgumentMatchers.eq(1),
-                org.mockito.ArgumentMatchers.any()
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.eq(1)
         )).thenReturn(dto);
 
-        mockMvc.perform(post("/api/incidents/1/comments")
+        mockMvc.perform(post("/api/incidents/1/comments").with(citizenToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -243,7 +344,7 @@ class IncidentControllerTest {
     @Test
     @DisplayName("POST /api/incidents/{id}/comments debe rechazar comentarios vacíos")
     void testCreateIncidentCommentRejectsBlankContent() throws Exception {
-        mockMvc.perform(post("/api/incidents/1/comments")
+        mockMvc.perform(post("/api/incidents/1/comments").with(citizenToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -251,5 +352,32 @@ class IncidentControllerTest {
                                 }
                                 """))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("POST /api/incidents sin token debe devolver 401")
+    void testCreateIncidentWithoutToken() throws Exception {
+        mockMvc.perform(post("/api/incidents")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "titulo": "Bache",
+                                  "descripcion": "Hay un bache.",
+                                  "latitud": 36.72,
+                                  "longitud": -4.42
+                                }
+                                """))
+                .andExpect(status().isUnauthorized());
+    }
+
+    /** Token simulado de un ciudadano con id 1 (sujeto del JWT). */
+    private static org.springframework.test.web.servlet.request.RequestPostProcessor citizenToken() {
+        return jwt().jwt(token -> token.subject("1").claim(SecurityConfig.ROLE_CLAIM, "CITIZEN"))
+                .authorities(new SimpleGrantedAuthority("ROLE_CITIZEN"));
+    }
+
+    private static org.springframework.test.web.servlet.request.RequestPostProcessor operatorToken() {
+        return jwt().jwt(token -> token.subject("2").claim(SecurityConfig.ROLE_CLAIM, "OPERATOR"))
+                .authorities(new SimpleGrantedAuthority("ROLE_OPERATOR"));
     }
 }

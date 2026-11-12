@@ -1,11 +1,20 @@
 # UrbanPulse
 
-UrbanPulse es una plataforma para registrar y consultar incidencias urbanas. Este
-repositorio contiene una API REST y una aplicación Expo para web y móvil.
+**Plataforma cloud para la gestión inteligente de incidencias urbanas.**
 
-## Funcionalidad RF03: registrar incidencia
+UrbanPulse transforma un aviso ciudadano aislado (un semáforo averiado, un árbol caído, un bache) en una
+unidad de trabajo **enriquecida con contexto urbano, trazable y analizable**. Integra lo que reporta la
+ciudadanía con datos de la ciudad de Málaga (activos urbanos, barrio y distrito, tráfico, meteorología…)
+para mejorar la clasificación, priorización, seguimiento, análisis y resolución de cada incidencia.
 
-Desde **Incidencias → Crear Incidencia**, se pueden enviar:
+La plataforma apoya al ciudadano, al operador municipal y al responsable de planificación **sin sustituir
+la decisión humana** en actuaciones sensibles.
+
+> Proyecto de la asignatura de Computación en la Nube — E.T.S. Ingeniería Informática, Universidad de Málaga.
+
+---
+
+## Registro de incidencias
 
 | Campo | Requisito | Longitud máxima |
 |---|---|---:|
@@ -15,31 +24,41 @@ Desde **Incidencias → Crear Incidencia**, se pueden enviar:
 | Prioridad | Opcional: `Baja`, `Media` o `Alta` | — |
 
 Al crear una incidencia, el backend la guarda como `Abierta`. Si no se indica prioridad,
-se usa `Media`. Mientras no haya autenticación, se asigna al primer usuario registrado.
-Las incidencias antiguas siguen mostrándose usando `reporte_central` como título y
-descripción cuando no tienen esos campos separados.
+se usa `Media`. La incidencia queda asociada al usuario autenticado. Las incidencias
+antiguas siguen mostrándose usando `reporte_central` como título y descripción cuando no
+tienen esos campos separados.
 
-### API
+## Características principales
 
-`POST /api/incidents` recibe JSON y devuelve `201 Created` con la incidencia creada:
+| Para… | UrbanPulse permite… |
+|---|---|
+| **Ciudadanía** | Registrar incidencias con título, descripción, categoría y ubicación en el mapa; adjuntar evidencias y consultar su estado. |
+| **Operadores municipales** | Validar o rechazar reportes, priorizar, asignar a departamentos o técnicos y buscar/filtrar incidencias. |
+| **Técnicos** | Disponer de una cola de trabajo, actualizar el progreso y documentar la resolución. |
+| **Administración** | Gestionar usuarios, roles, categorías y fuentes con auditoría completa. |
+| **Analistas** | Consultar indicadores, estadísticas territoriales y análisis por zona. |
 
 ```json
 {
   "titulo": "Bache en la calzada",
   "descripcion": "Hay un bache frente al número 12.",
   "categoria": "Vía pública",
-  "prioridad": "Alta"
+  "prioridad": "Alta",
+  "latitud": 36.721274,
+  "longitud": -4.421399
 }
 ```
 
 `categoria` y `prioridad` se pueden omitir; la prioridad debe ser `Baja`, `Media` o `Alta`.
 `titulo` y `descripcion` deben contener texto. La API también conserva
 `GET /api/incidents` para listar y `GET /api/incidents/{id}` para consultar el detalle.
+La creación requiere autenticación y coordenadas geográficas válidas.
 
 La prioridad se puede cambiar después desde el detalle de la incidencia o mediante
 `PATCH /api/incidents/{id}/priority`, enviando `{"prioridad":"Alta"}` (también se aceptan
 `Media` y `Baja`). Devuelve `200 OK` con los datos actualizados; devuelve `400 Bad Request`
-si la prioridad no es válida y `404 Not Found` si no existe la incidencia.
+si la prioridad no es válida, `403 Forbidden` si el usuario no tiene privilegios y
+`404 Not Found` si no existe la incidencia. Solo `OPERATOR` y `ADMIN` pueden cambiarla.
 
 ## Comentarios en incidencias
 
@@ -52,12 +71,11 @@ añadir un comentario se usa `POST /api/incidents/{id}/comments`:
 }
 ```
 
-El comentario debe contener texto y admite hasta 400 caracteres. La respuesta es
-`201 Created` con la incidencia y el listado de comentarios actualizado. Se devuelve
-`400 Bad Request` si el comentario está vacío o supera el límite, `404 Not Found` si la
-incidencia no existe, y `409 Conflict` si todavía no hay usuarios registrados. Mientras
-no haya autenticación, el comentario se atribuye al primer usuario registrado; se guarda
-su autor y fecha de creación en `"IncidentComment"`.
+El comentario debe contener texto y admite hasta 400 caracteres. Se requiere autenticación;
+el autor se toma del usuario autenticado. La respuesta es `201 Created` con la incidencia y
+el listado de comentarios actualizado. Se devuelve `400 Bad Request` si el comentario está
+vacío o supera el límite, `401 Unauthorized` sin autenticación y `404 Not Found` si la
+incidencia no existe. Se guarda el autor y la fecha de creación en `"IncidentComment"`.
 
 ## Funcionalidad RF12: ciclo de vida de incidencias
 
@@ -69,11 +87,11 @@ Abierta → En revisión → Resuelta → Cerrada
 
 Solo se permite avanzar al siguiente estado; `Cerrada` es terminal. Un estado desconocido
 se rechaza con `400 Bad Request` y una transición no permitida con `409 Conflict`.
+Solo los roles `OPERATOR`, `TECHNICIAN` y `ADMIN` pueden cambiar el estado; el resto recibe
+`403 Forbidden`.
 Cada transición válida actualiza la incidencia y agrega, en la misma transacción, una
-fila a `"StatusChange"` con el actor, la transición, el motivo opcional y la fecha. El
-detalle de la incidencia devuelve ese historial en orden cronológico. Mientras no haya
-autenticación, se atribuye el cambio al primer usuario registrado, igual que al crear
-incidencias.
+fila a `"StatusChange"` con el usuario autenticado como actor, la transición, el motivo
+opcional y la fecha. El detalle de la incidencia devuelve ese historial en orden cronológico.
 
 `PATCH /api/incidents/{id}/status` recibe el estado destino y, opcionalmente, el motivo:
 
@@ -88,106 +106,82 @@ Devuelve `200 OK` con la incidencia actualizada y su historial, `404 Not Found` 
 incidencia no existe, `400 Bad Request` si falta el estado o supera el límite de
 caracteres, y `409 Conflict` si la transición no está permitida. El campo `motivo`
 admite hasta 400 caracteres.
+Principios del producto:
+
+- **La incidencia es el centro del dominio** y conserva un ciclo de vida auditable
+  (`REPORTED → VALIDATED → ASSIGNED → IN_PROGRESS → RESOLVED → CLOSED`, con `REJECTED` y `REOPENED`).
+- **Los datos externos enriquecen, nunca bloquean**: si una fuente de la ciudad no está disponible,
+  la incidencia se registra igualmente (degradación controlada).
+- **Solución más sencilla que cumpla los atributos de calidad medidos**: se parte de un monolito y solo se
+  añaden piezas cuando hay un problema observable, documentado con un [ADR](docs/adr/).
+
+Estado actual de las funcionalidades: ver [CHANGELOG.md](CHANGELOG.md).
+
+---
 
 ## Tecnologías
 
-- Backend: Java 17+, Spring Boot 4, Spring MVC, Spring Data JPA y PostgreSQL.
-- Frontend: Expo SDK 57, React Native, Expo Router y TypeScript.
+| Capa | Tecnología | Para qué se usa |
+|---|---|---|
+| Backend | **Java 17 + Spring Boot** (Spring MVC, Spring Data JPA) | API REST monolítica con la lógica de negocio de incidencias. |
+| Build backend | **Maven** (wrapper `mvnw`) | Dependencias explícitas, compilación, pruebas y empaquetado. |
+| Base de datos | **PostgreSQL 15** | Persistencia relacional y transaccional del dominio y del historial de estados. |
+| Frontend | **Expo + React Native + TypeScript** (Expo Router) | Aplicación móvil y web para ciudadanía y personal municipal. |
+| Mapas | **react-native-maps** / OpenStreetMap (web) y **expo-location** | Selección de ubicación y visualización de incidencias en el mapa. |
+| Contenedores | **Docker Compose** | Levantar los servicios de apoyo (PostgreSQL) de forma reproducible. |
+| CI | **GitHub Actions** | Compilar y probar backend y frontend en cada Pull Request. |
 
-## Ejecución local en NixOS
+Las decisiones que justifican cada elección están en [`docs/adr/`](docs/adr/).
 
-### 1. Preparar PostgreSQL
+---
 
-Activa el servicio en `/etc/nixos/configuration.nix`:
-
-```nix
-services.postgresql.enable = true;
-```
-
-Aplica la configuración e inicia el servicio:
-
-```bash
-sudo nixos-rebuild switch
-sudo systemctl start postgresql
-sudo systemctl status postgresql
-```
-
-Crea el usuario y la base de datos de desarrollo (si aún no existen):
+## Inicio rápido
 
 ```bash
-sudo -u postgres psql
+git clone https://github.com/JANUEVE5/UrbanPulse.git
+cd UrbanPulse
+cp .env.example .env
+docker compose up -d                       # PostgreSQL
+cd backend && ./mvnw spring-boot:run       # API en http://localhost:8080/api
+cd ../frontend && npm install && npx expo start
 ```
 
-En el prompt de PostgreSQL, ejecuta y sustituye la contraseña de ejemplo:
+La guía completa (Windows y Linux, pruebas, móvil físico, problemas frecuentes) está en
+[docs/development.md](docs/development.md).
 
-```sql
-CREATE ROLE urbanpulse WITH LOGIN PASSWORD 'cambia-esta-contrasena';
-CREATE DATABASE urbanpulse OWNER urbanpulse;
-\q
+---
+
+## Documentación
+
+| Documento | Contenido |
+|---|---|
+| [docs/requirements.md](docs/requirements.md) | Requisitos funcionales, priorización MoSCoW y alcance del sprint. |
+| [docs/architecture.md](docs/architecture.md) | Arquitectura del sistema (modelo C4), modelo de dominio y ciclo de vida. |
+| [docs/development.md](docs/development.md) | Cómo preparar el entorno, ejecutar, probar y trabajar con Git. |
+| [docs/deployment.md](docs/deployment.md) | Cómo se construye, configura y despliega la aplicación. |
+| [docs/adr/](docs/adr/) | Registro de decisiones de arquitectura (ADR). |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Flujo de trabajo, ramas, commits y Pull Requests. |
+| [AGENTS.md](AGENTS.md) | Instrucciones para agentes de IA que trabajan en el repositorio. |
+
+## Estructura del repositorio
+
+```text
+UrbanPulse/
+├── .github/        # CI (workflows), plantillas de issues y de Pull Request
+├── .agents/        # Skills compartidas para agentes de IA
+├── .claude/        # Configuración de Claude Code del proyecto
+├── backend/        # API REST Spring Boot (Maven)
+├── frontend/       # Aplicación Expo / React Native
+├── docs/           # Arquitectura, desarrollo, despliegue y ADRs
+├── compose.yaml    # Servicios de apoyo para desarrollo local
+└── .env.example    # Variables de entorno necesarias (sin secretos)
 ```
 
-Configura `backend/src/main/resources/application.properties` para que la URL apunte a
-`jdbc:postgresql://localhost:5432/urbanpulse` y coincidan el usuario y la contraseña.
-No subas contraseñas reales al repositorio.
+## Contribuir
 
-> **Aviso de desarrollo:** `schema.sql` elimina y recrea las tablas al arrancar porque
-> `spring.sql.init.mode=always`. Cada inicio del backend borra los datos anteriores y
-> vuelve a cargar los datos de ejemplo. No uses esta configuración con datos que quieras
-> conservar.
+Todo cambio entra en `main` mediante una rama y un Pull Request revisado. Lee
+[CONTRIBUTING.md](CONTRIBUTING.md) antes de empezar.
 
-### 2. Ejecutar el backend
+## Licencia
 
-Se necesita Java 17 o posterior. Si no está instalado en el sistema, puedes abrir una
-terminal temporal con JDK 17 y, en esa misma terminal, ejecutar el backend:
-
-```bash
-nix shell nixpkgs#jdk17
-cd backend
-./mvnw spring-boot:run
-```
-
-La API queda disponible en `http://localhost:8080`.
-
-### 3. Ejecutar el frontend sin instalar npm en el sistema
-
-Abre una terminal con Node.js y npm proporcionados por Nix:
-
-```bash
-nix shell nixpkgs#nodejs_22
-```
-
-Dentro de esa terminal, instala dependencias y arranca Expo para web:
-
-```bash
-cd frontend
-npm ci
-npm run web
-```
-
-Abre en el navegador la URL local que muestre Expo. Para iniciar Expo y elegir otro
-destino (por ejemplo, un emulador), usa `npm start`.
-
-La aplicación web usa por defecto `http://localhost:8080/api`. En un móvil físico,
-configura `EXPO_PUBLIC_API_URL` con la IP del ordenador y reinicia Expo, por ejemplo:
-
-```bash
-EXPO_PUBLIC_API_URL=http://192.168.1.20:8080/api npm start
-```
-
-Sustituye la IP de ejemplo por la dirección de tu ordenador en la red local y permite
-las conexiones al puerto `8080` en el firewall si fuera necesario.
-
-### 4. Probar el endpoint de creación
-
-Con el backend iniciado, puedes comprobar la API desde otra terminal:
-
-```bash
-curl -i -X POST http://localhost:8080/api/incidents \
-  -H 'Content-Type: application/json' \
-  -d '{"titulo":"Bache en la calzada","descripcion":"Hay un bache frente al número 12.","categoria":"Vía pública"}'
-```
-
-La respuesta correcta es `201 Created` con los datos de la incidencia. Para omitir la
-categoría, elimina esa propiedad del JSON. Si el usuario registrado no existe, el backend
-responde `409 Conflict`; los campos obligatorios vacíos o que superen el límite de
-caracteres se rechazan con `400 Bad Request`.
+Distribuido bajo licencia [MIT](LICENSE).

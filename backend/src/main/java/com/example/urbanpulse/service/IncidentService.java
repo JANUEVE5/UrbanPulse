@@ -10,10 +10,10 @@ import java.util.List;
 import java.util.Optional;
 
 public interface IncidentService {
-    List<IncidentDTO> getAllIncidents();
+    List<IncidentDTO> getMyIncidents(Integer creatorId);
     Optional<IncidentDTO> getIncidentById(Integer id);
-    IncidentDTO createIncident(CreateIncidentRequest request);
-    IncidentDTO updateIncidentStatus(Integer id, UpdateIncidentStatusRequest request);
+    IncidentDTO createIncident(CreateIncidentRequest request, Integer creatorId);
+    IncidentDTO updateIncidentStatus(Integer id, UpdateIncidentStatusRequest request, Integer actorId);
     IncidentDTO updateIncidentPriority(Integer id, UpdateIncidentPriorityRequest request);
-    IncidentDTO createIncidentComment(Integer id, CreateIncidentCommentRequest request);
+    IncidentDTO createIncidentComment(Integer id, CreateIncidentCommentRequest request, Integer actorId);
 }
