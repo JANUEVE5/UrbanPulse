@@ -13,6 +13,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -22,6 +23,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -142,6 +144,7 @@ class IncidentControllerTest {
                                   "titulo": "Bache en la calzada",
                                   "descripcion": "Hay un bache frente al número 12.",
                                   "categoria": "Vía pública",
+                                  "prioridad": "Alta",
                                   "latitud": 36.721274,
                                   "longitud": -4.421399
                                 }
@@ -186,6 +189,61 @@ class IncidentControllerTest {
     }
 
     @Test
+    @DisplayName("PATCH /api/incidents/{id}/status debe devolver el estado actualizado y su historial")
+    void testUpdateIncidentStatus() throws Exception {
+        IncidentDTO dto = new IncidentDTO();
+        dto.setId(1);
+        dto.setEstado("En revisión");
+        dto.setHistorial(List.of(new StatusChangeDTO(
+                2, 1, "Ana García", "Abierta → En revisión", "Asignada para revisión", LocalDateTime.now()
+        )));
+
+        when(incidentService.updateIncidentStatus(
+                org.mockito.ArgumentMatchers.eq(1),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.eq(2)
+        )).thenReturn(dto);
+
+        mockMvc.perform(patch("/api/incidents/1/status").with(operatorToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "estado": "En revisión",
+                                  "motivo": "Asignada para revisión"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("En revisión"))
+                .andExpect(jsonPath("$.historial[0].transicion").value("Abierta → En revisión"));
+    }
+
+    @Test
+    @DisplayName("PATCH /api/incidents/{id}/status debe rechazar un estado vacío")
+    void testUpdateIncidentStatusWithBlankStatus() throws Exception {
+        mockMvc.perform(patch("/api/incidents/1/status").with(operatorToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "estado": " "
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("PATCH /api/incidents/{id}/status debe denegar a ciudadanos")
+    void testCitizenCannotUpdateIncidentStatus() throws Exception {
+        mockMvc.perform(patch("/api/incidents/1/status").with(citizenToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "estado": "En revisión"
+                                }
+                                """))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     @DisplayName("POST /api/incidents debe rechazar coordenadas fuera de rango (RF04)")
     void testCreateIncidentWithOutOfRangeCoordinates() throws Exception {
         mockMvc.perform(post("/api/incidents").with(citizenToken())
@@ -214,6 +272,89 @@ class IncidentControllerTest {
     }
 
     @Test
+    @DisplayName("PATCH /api/incidents/{id}/priority debe actualizar la prioridad")
+    void testUpdateIncidentPriority() throws Exception {
+        IncidentDTO dto = new IncidentDTO();
+        dto.setId(1);
+        dto.setPrioridad("Alta");
+        when(incidentService.updateIncidentPriority(
+                org.mockito.ArgumentMatchers.eq(1),
+                org.mockito.ArgumentMatchers.any()
+        )).thenReturn(dto);
+
+        mockMvc.perform(patch("/api/incidents/1/priority").with(operatorToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "prioridad": "Alta"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.prioridad").value("Alta"));
+    }
+
+    @Test
+    @DisplayName("PATCH /api/incidents/{id}/priority debe rechazar prioridades desconocidas")
+    void testUpdateIncidentPriorityRejectsUnknownValue() throws Exception {
+        mockMvc.perform(patch("/api/incidents/1/priority").with(operatorToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "prioridad": "Crítica"
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("PATCH /api/incidents/{id}/priority debe denegar a ciudadanos")
+    void testCitizenCannotUpdateIncidentPriority() throws Exception {
+        mockMvc.perform(patch("/api/incidents/1/priority").with(citizenToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "prioridad": "Alta"
+                                }
+                                """))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("POST /api/incidents/{id}/comments debe añadir un comentario")
+    void testCreateIncidentComment() throws Exception {
+        IncidentDTO dto = new IncidentDTO();
+        dto.setId(1);
+        when(incidentService.createIncidentComment(
+                org.mockito.ArgumentMatchers.eq(1),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.eq(1)
+        )).thenReturn(dto);
+
+        mockMvc.perform(post("/api/incidents/1/comments").with(citizenToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "contenido": "Ya se avisó al equipo."
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(1));
+    }
+
+    @Test
+    @DisplayName("POST /api/incidents/{id}/comments debe rechazar comentarios vacíos")
+    void testCreateIncidentCommentRejectsBlankContent() throws Exception {
+        mockMvc.perform(post("/api/incidents/1/comments").with(citizenToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "contenido": " "
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     @DisplayName("POST /api/incidents sin token debe devolver 401")
     void testCreateIncidentWithoutToken() throws Exception {
         mockMvc.perform(post("/api/incidents")
@@ -231,6 +372,12 @@ class IncidentControllerTest {
 
     /** Token simulado de un ciudadano con id 1 (sujeto del JWT). */
     private static org.springframework.test.web.servlet.request.RequestPostProcessor citizenToken() {
-        return jwt().jwt(token -> token.subject("1").claim(SecurityConfig.ROLE_CLAIM, "CITIZEN"));
+        return jwt().jwt(token -> token.subject("1").claim(SecurityConfig.ROLE_CLAIM, "CITIZEN"))
+                .authorities(new SimpleGrantedAuthority("ROLE_CITIZEN"));
+    }
+
+    private static org.springframework.test.web.servlet.request.RequestPostProcessor operatorToken() {
+        return jwt().jwt(token -> token.subject("2").claim(SecurityConfig.ROLE_CLAIM, "OPERATOR"))
+                .authorities(new SimpleGrantedAuthority("ROLE_OPERATOR"));
     }
 }

@@ -4,6 +4,7 @@ import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
@@ -20,6 +21,9 @@ public class CreateIncidentRequest {
 
     @Size(max = 50)
     private String categoria;
+
+    @Pattern(regexp = "Baja|Media|Alta")
+    private String prioridad;
 
     @NotNull
     @DecimalMin("-90.0")
@@ -71,5 +75,13 @@ public class CreateIncidentRequest {
 
     public void setCategoria(String categoria) {
         this.categoria = categoria;
+    }
+
+    public String getPrioridad() {
+        return prioridad;
+    }
+
+    public void setPrioridad(String prioridad) {
+        this.prioridad = prioridad;
     }
 }

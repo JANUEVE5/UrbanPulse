@@ -5,6 +5,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,6 +24,10 @@ import {
   getIncidentById,
   getIncidents,
   Incident,
+  IncidentPriority,
+  addIncidentComment,
+  updateIncidentPriority,
+  updateIncidentStatus,
 } from '@/services/incidentService';
 
 export default function IncidentsScreen() {
@@ -58,6 +63,10 @@ export default function IncidentsScreen() {
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [creatingIncident, setCreatingIncident] = useState(false);
   const [creationSuccess, setCreationSuccess] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [updatingPriority, setUpdatingPriority] = useState(false);
+  const [postingComment, setPostingComment] = useState(false);
 
   const fetchIncidents = useCallback(async () => {
     if (authStatus !== 'signedIn' || user === null) return;
@@ -84,6 +93,7 @@ export default function IncidentsScreen() {
   const fetchDetail = useCallback(async (id: number) => {
     setLoadingDetail(true);
     setErrorDetail(null);
+    setStatusError(null);
     try {
       const data = await getIncidentById(id);
       setIncidentDetail(data);
@@ -155,6 +165,47 @@ export default function IncidentsScreen() {
     setCreatingIncident(false);
     setCreationSuccess(true);
     await fetchIncidents();
+  };
+
+  const handleStatusTransition = async (id: number, estado: string, motivo: string) => {
+    setUpdatingStatus(true);
+    setStatusError(null);
+    try {
+      setIncidentDetail(await updateIncidentStatus(id, {
+        estado,
+        ...(motivo.trim() ? { motivo: motivo.trim() } : {}),
+      }));
+    } catch (err: unknown) {
+      setStatusError(err instanceof Error ? err.message : 'No se pudo actualizar el estado.');
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  const handlePriorityChange = async (id: number, prioridad: IncidentPriority) => {
+    setUpdatingPriority(true);
+    setStatusError(null);
+    try {
+      setIncidentDetail(await updateIncidentPriority(id, { prioridad }));
+    } catch (err: unknown) {
+      setStatusError(err instanceof Error ? err.message : 'No se pudo actualizar la prioridad.');
+    } finally {
+      setUpdatingPriority(false);
+    }
+  };
+
+  const handleAddComment = async (id: number, contenido: string): Promise<boolean> => {
+    setPostingComment(true);
+    setStatusError(null);
+    try {
+      setIncidentDetail(await addIncidentComment(id, contenido));
+      return true;
+    } catch (err: unknown) {
+      setStatusError(err instanceof Error ? err.message : 'No se pudo añadir el comentario.');
+      return false;
+    } finally {
+      setPostingComment(false);
+    }
   };
 
   // En pantallas estrechas se deja sitio al botón de menú flotante (arriba a la izquierda)
@@ -246,6 +297,13 @@ export default function IncidentsScreen() {
               error={errorDetail}
               onBack={handleBackToList}
               onRetry={() => fetchDetail(selectedId)}
+              onTransition={(estado, motivo) => handleStatusTransition(selectedId, estado, motivo)}
+              onPriorityChange={(prioridad) => handlePriorityChange(selectedId, prioridad)}
+              onAddComment={(contenido) => handleAddComment(selectedId, contenido)}
+              updatingStatus={updatingStatus}
+              updatingPriority={updatingPriority}
+              postingComment={postingComment}
+              statusError={statusError}
             />
           ) : creatingIncident ? (
             <CreateIncidentForm
@@ -504,6 +562,13 @@ interface DetailViewProps {
   error: string | null;
   onBack: () => void;
   onRetry: () => void;
+  onTransition: (estado: string, motivo: string) => void;
+  onPriorityChange: (prioridad: IncidentPriority) => void;
+  onAddComment: (contenido: string) => Promise<boolean>;
+  updatingStatus: boolean;
+  updatingPriority: boolean;
+  postingComment: boolean;
+  statusError: string | null;
 }
 
 function IncidentDetailView({
@@ -513,9 +578,23 @@ function IncidentDetailView({
   error,
   onBack,
   onRetry,
+  onTransition,
+  onPriorityChange,
+  onAddComment,
+  updatingStatus,
+  updatingPriority,
+  postingComment,
+  statusError,
 }: DetailViewProps) {
+  const theme = useTheme();
+  const { user } = useAuth();
+  const canManageStatus = user !== null && ['OPERATOR', 'TECHNICIAN', 'ADMIN'].includes(user.rol);
+  const canManagePriority = user !== null && ['OPERATOR', 'ADMIN'].includes(user.rol);
+  const [motivo, setMotivo] = useState('');
+  const [commentText, setCommentText] = useState('');
   const statusColors = incident ? getStatusBadgeColor(incident.estado) : null;
   const priorityColors = incident ? getPriorityBadgeColor(incident.prioridad) : null;
+  const nextStatuses = incident ? getNextIncidentStatuses(incident.estado) : [];
   const coords = incident ? getIncidentCoordinates(incident) : null;
 
   return (
@@ -652,6 +731,28 @@ function IncidentDetailView({
                   </ThemedText>
                 </View>
               )}
+              {canManagePriority ? <View style={styles.priorityOptions}>
+                {(['Baja', 'Media', 'Alta'] as const).map((priority) => (
+                  <Pressable
+                    key={priority}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: incident.prioridad === priority }}
+                    disabled={updatingPriority}
+                    onPress={() => onPriorityChange(priority)}
+                    style={({ pressed }) => [
+                      styles.priorityOption,
+                      incident.prioridad === priority && styles.priorityOptionSelected,
+                      pressed && styles.pressed,
+                      updatingPriority && styles.disabledButton,
+                    ]}>
+                    <ThemedText
+                      type="smallBold"
+                      style={incident.prioridad === priority ? styles.priorityOptionSelectedText : undefined}>
+                      {priority}
+                    </ThemedText>
+                  </Pressable>
+                ))}
+              </View> : null}
             </View>
           </ThemedView>
 
@@ -761,11 +862,66 @@ function IncidentDetailView({
               🕒 SEGUIMIENTO E HISTORIAL DE AUDITORÍA
             </ThemedText>
 
-            <View style={styles.historyNotice}>
-              <ThemedText type="small" style={styles.historyNoticeText}>
-                ℹ️ El seguimiento de estados y el historial de cambios estarán disponibles próximamente.
+            {canManageStatus && nextStatuses.length > 0 ? (
+              <View style={styles.transitionControls}>
+                <ThemedText type="smallBold">Cambiar estado</ThemedText>
+                <TextInput
+                  accessibilityLabel="Motivo del cambio de estado; obligatorio para rechazar o reabrir"
+                  value={motivo}
+                  onChangeText={setMotivo}
+                  placeholder="Motivo (obligatorio para rechazar o reabrir)"
+                  placeholderTextColor={theme.textSecondary}
+                  maxLength={400}
+                  style={[
+                    styles.transitionInput,
+                    { color: theme.text, borderColor: theme.backgroundSelected },
+                  ]}
+                />
+                <View style={styles.transitionActions}>
+                  {nextStatuses.map((nextStatus) => {
+                    const reasonRequired = ['Rechazada', 'Reabierta'].includes(nextStatus);
+                    const canSubmit = !reasonRequired || motivo.trim().length > 0;
+                    const actionLabel = nextStatus === 'Rechazada'
+                      ? 'Rechazar incidencia'
+                      : nextStatus === 'Reabierta'
+                        ? 'Reabrir incidencia'
+                        : `Marcar como ${nextStatus}`;
+                    return (
+                    <Pressable
+                      key={nextStatus}
+                      accessibilityRole="button"
+                      disabled={updatingStatus || !canSubmit}
+                      onPress={() => onTransition(nextStatus, motivo)}
+                      style={({ pressed }) => [
+                        styles.transitionButton,
+                        pressed && styles.pressed,
+                        (updatingStatus || !canSubmit) && styles.disabledButton,
+                      ]}>
+                      {updatingStatus ? (
+                        <ActivityIndicator color="#ffffff" />
+                      ) : (
+                        <ThemedText type="smallBold" style={styles.transitionButtonText}>
+                          {actionLabel}
+                        </ThemedText>
+                      )}
+                    </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            ) : canManageStatus ? (
+              <ThemedText type="small" themeColor="textSecondary">
+                La incidencia está en su estado final.
               </ThemedText>
-            </View>
+            ) : null}
+
+            {statusError ? (
+              <ThemedView style={styles.statusErrorBox}>
+                <ThemedText type="small" style={styles.statusErrorText}>
+                  {statusError}
+                </ThemedText>
+              </ThemedView>
+            ) : null}
 
             {incident.historial && incident.historial.length > 0 ? (
               <View style={styles.timelineList}>
@@ -793,6 +949,77 @@ function IncidentDetailView({
             ) : (
               <ThemedText type="small" themeColor="textSecondary" style={styles.emptyHistory}>
                 No hay transiciones de estado registradas todavía.
+              </ThemedText>
+            )}
+          </ThemedView>
+
+          <ThemedView type="backgroundElement" style={styles.detailCard}>
+            <ThemedText type="smallBold" style={styles.cardSectionTitle}>
+              💬 COMENTARIOS
+            </ThemedText>
+            {user ? (
+              <>
+                <TextInput
+                  accessibilityLabel="Nuevo comentario"
+                  value={commentText}
+                  onChangeText={setCommentText}
+                  placeholder="Escribe un comentario..."
+                  placeholderTextColor={theme.textSecondary}
+                  maxLength={400}
+                  multiline
+                  textAlignVertical="top"
+                  style={[
+                    styles.transitionInput,
+                    styles.commentInput,
+                    { color: theme.text, borderColor: theme.backgroundSelected },
+                  ]}
+                />
+                <View style={styles.commentSubmitRow}>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {commentText.length}/400
+                  </ThemedText>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={postingComment || !commentText.trim()}
+                    onPress={() => {
+                      void onAddComment(commentText).then((added) => {
+                        if (added) setCommentText('');
+                      });
+                    }}
+                    style={({ pressed }) => [
+                      styles.transitionButton,
+                      pressed && styles.pressed,
+                      (postingComment || !commentText.trim()) && styles.disabledButton,
+                    ]}>
+                    {postingComment ? (
+                      <ActivityIndicator color="#ffffff" />
+                    ) : (
+                      <ThemedText type="smallBold" style={styles.transitionButtonText}>
+                        Añadir comentario
+                      </ThemedText>
+                    )}
+                  </Pressable>
+                </View>
+              </>
+            ) : (
+              <ThemedText type="small" themeColor="textSecondary">
+                Inicia sesión para añadir un comentario.
+              </ThemedText>
+            )}
+            {incident.comentarios && incident.comentarios.length > 0 ? (
+              <View style={styles.commentsList}>
+                {incident.comentarios.map((comment) => (
+                  <View key={comment.id} style={styles.commentItem}>
+                    <ThemedText type="small">{comment.contenido}</ThemedText>
+                    <ThemedText type="code" style={styles.commentMetadata}>
+                      Por: {comment.actorNombre || `Usuario #${comment.actorId}`} • {formatDate(comment.createdAt)}
+                    </ThemedText>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <ThemedText type="small" themeColor="textSecondary">
+                Todavía no hay comentarios en esta incidencia.
               </ThemedText>
             )}
           </ThemedView>
@@ -824,6 +1051,12 @@ function formatDate(dateStr?: string | null): string {
 
 function getStatusBadgeColor(status: string) {
   const norm = status?.toLowerCase() || '';
+  if (norm.includes('rechaz')) {
+    return { bg: '#fee2e2', text: '#b91c1c', border: '#f87171' };
+  }
+  if (norm.includes('reabiert')) {
+    return { bg: '#fef3c7', text: '#b45309', border: '#fbbf24' };
+  }
   if (norm.includes('resuelt') || norm.includes('cerrad')) {
     return { bg: '#dcfce7', text: '#15803d', border: '#4ade80' };
   }
@@ -831,6 +1064,23 @@ function getStatusBadgeColor(status: string) {
     return { bg: '#e0f2fe', text: '#0284c7', border: '#38bdf8' };
   }
   return { bg: '#fee2e2', text: '#dc2626', border: '#f87171' };
+}
+
+function getNextIncidentStatuses(estado: string): string[] {
+  switch (estado) {
+    case 'Abierta':
+      return ['En revisión'];
+    case 'En revisión':
+      return ['Resuelta', 'Rechazada'];
+    case 'Resuelta':
+      return ['Cerrada', 'Reabierta'];
+    case 'Cerrada':
+      return ['Reabierta'];
+    case 'Reabierta':
+      return ['En revisión'];
+    default:
+      return [];
+  }
 }
 
 function getPriorityBadgeColor(priority: string) {
@@ -1119,6 +1369,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
   },
+  transitionControls: {
+    gap: Spacing.two,
+  },
+  transitionInput: {
+    minHeight: 44,
+    borderWidth: 1,
+    borderRadius: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    fontSize: 15,
+    backgroundColor: 'transparent',
+  },
   detailMapWrapper: {
     marginVertical: Spacing.two,
     gap: Spacing.one,
@@ -1134,15 +1396,75 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontStyle: 'italic',
   },
-  historyNotice: {
-    backgroundColor: 'rgba(16, 79, 133, 0.1)',
-    borderColor: Brand.blue,
-    borderWidth: 1,
-    borderRadius: Spacing.two,
-    padding: Spacing.three,
+  commentInput: {
+    minHeight: 88,
   },
-  historyNoticeText: {
-    lineHeight: 18,
+  commentSubmitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
+  commentsList: {
+    gap: Spacing.two,
+  },
+  commentItem: {
+    padding: Spacing.three,
+    gap: Spacing.one,
+    borderRadius: Spacing.two,
+    backgroundColor: 'rgba(60, 135, 247, 0.08)',
+  },
+  commentMetadata: {
+    color: '#888',
+  },
+  transitionActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  transitionButton: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
+    borderRadius: Spacing.two,
+    backgroundColor: '#3c87f7',
+  },
+  transitionButtonText: {
+    color: '#ffffff',
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
+  priorityOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.one,
+    marginTop: Spacing.one,
+  },
+  priorityOption: {
+    minHeight: 38,
+    minWidth: 76,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.two,
+    borderWidth: 1,
+    borderColor: '#9ca3af',
+    borderRadius: Spacing.two,
+  },
+  priorityOptionSelected: {
+    backgroundColor: '#3c87f7',
+    borderColor: '#3c87f7',
+  },
+  priorityOptionSelectedText: {
+    color: '#ffffff',
+  },
+  statusErrorBox: {
+    padding: Spacing.two,
+    borderRadius: Spacing.two,
+    backgroundColor: '#fee2e2',
+  },
+  statusErrorText: {
+    color: '#b91c1c',
   },
   timelineList: {
     marginTop: Spacing.two,

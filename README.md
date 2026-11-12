@@ -14,6 +14,20 @@ la decisión humana** en actuaciones sensibles.
 
 ---
 
+## Registro de incidencias
+
+| Campo | Requisito | Longitud máxima |
+|---|---|---:|
+| Título | Obligatorio, no puede estar vacío | 100 caracteres |
+| Descripción | Obligatoria, no puede estar vacía | 400 caracteres |
+| Categoría | Opcional; texto libre | 50 caracteres |
+| Prioridad | Opcional: `Baja`, `Media` o `Alta` | — |
+
+Al crear una incidencia, el backend la guarda como `Abierta`. Si no se indica prioridad,
+se usa `Media`. La incidencia queda asociada al usuario autenticado. Las incidencias
+antiguas siguen mostrándose usando `reporte_central` como título y descripción cuando no
+tienen esos campos separados.
+
 ## Características principales
 
 | Para… | UrbanPulse permite… |
@@ -24,6 +38,93 @@ la decisión humana** en actuaciones sensibles.
 | **Administración** | Gestionar usuarios, roles, categorías y fuentes con auditoría completa. |
 | **Analistas** | Consultar indicadores, estadísticas territoriales y análisis por zona. |
 
+```json
+{
+  "titulo": "Bache en la calzada",
+  "descripcion": "Hay un bache frente al número 12.",
+  "categoria": "Vía pública",
+  "prioridad": "Alta",
+  "latitud": 36.721274,
+  "longitud": -4.421399
+}
+```
+
+`categoria` y `prioridad` se pueden omitir; la prioridad debe ser `Baja`, `Media` o `Alta`.
+`titulo` y `descripcion` deben contener texto. La API también conserva
+`GET /api/incidents` para listar y `GET /api/incidents/{id}` para consultar el detalle.
+La creación requiere autenticación y coordenadas geográficas válidas.
+
+La prioridad se puede cambiar después desde el detalle de la incidencia o mediante
+`PATCH /api/incidents/{id}/priority`, enviando `{"prioridad":"Alta"}` (también se aceptan
+`Media` y `Baja`). Devuelve `200 OK` con los datos actualizados; devuelve `400 Bad Request`
+si la prioridad no es válida, `403 Forbidden` si el usuario no tiene privilegios y
+`404 Not Found` si no existe la incidencia. Solo `OPERATOR` y `ADMIN` pueden cambiarla.
+
+## Comentarios en incidencias
+
+El detalle (`GET /api/incidents/{id}`) incluye `comentarios`, en orden cronológico. Para
+añadir un comentario se usa `POST /api/incidents/{id}/comments`:
+
+```json
+{
+  "contenido": "Ya se avisó al equipo municipal."
+}
+```
+
+El comentario debe contener texto y admite hasta 400 caracteres. Se requiere autenticación;
+el autor se toma del usuario autenticado. La respuesta es `201 Created` con la incidencia y
+el listado de comentarios actualizado. Se devuelve `400 Bad Request` si el comentario está
+vacío o supera el límite, `401 Unauthorized` sin autenticación y `404 Not Found` si la
+incidencia no existe. Se guarda el autor y la fecha de creación en `"IncidentComment"`.
+Los comentarios están disponibles para cualquier usuario autenticado; no requieren un rol
+municipal.
+
+## Funcionalidad RF12: ciclo de vida de incidencias
+
+Los estados permitidos y sus transiciones son:
+
+```text
+Abierta ────────→ En revisión → Resuelta → Cerrada
+   └────────────→ Rechazada (terminal)
+                 En revisión ─→ Rechazada (terminal)
+Resuelta/Cerrada → Reabierta → En revisión
+```
+
+`Abierta` puede avanzar a `En revisión` o ser rechazada; `En revisión` también puede
+finalizar como `Rechazada`. `Resuelta` puede
+cerrarse o reabrirse; una incidencia `Cerrada` también puede reabrirse. Una incidencia
+`Reabierta` vuelve a `En revisión`. `Rechazada` es terminal. Rechazar o reabrir requiere
+un motivo no vacío, que se conserva en el historial. Un estado desconocido se rechaza con
+`400 Bad Request` y una transición no permitida con `409 Conflict`.
+Solo los roles `OPERATOR`, `TECHNICIAN` y `ADMIN` pueden cambiar el estado; el resto recibe
+`403 Forbidden`.
+Cada transición válida actualiza la incidencia y agrega, en la misma transacción, una
+fila a `"StatusChange"` con el usuario autenticado como actor, la transición, el motivo
+opcional y la fecha. El detalle de la incidencia devuelve ese historial en orden cronológico.
+
+`PATCH /api/incidents/{id}/status` recibe el estado destino y, opcionalmente, el motivo:
+
+```json
+{
+  "estado": "En revisión",
+  "motivo": "Asignada al equipo de revisión"
+}
+```
+
+Para rechazar o reabrir, el `motivo` es obligatorio:
+
+```json
+{
+  "estado": "Rechazada",
+  "motivo": "La incidencia está fuera del ámbito municipal."
+}
+```
+
+Devuelve `200 OK` con la incidencia actualizada y su historial, `404 Not Found` si la
+incidencia no existe, `400 Bad Request` si falta el estado o el motivo supera el límite de
+caracteres, `401 Unauthorized` sin autenticación, `403 Forbidden` sin un rol autorizado y
+`409 Conflict` si la transición no está permitida. El campo `motivo` admite hasta 400
+caracteres.
 Principios del producto:
 
 - **La incidencia es el centro del dominio** y conserva un ciclo de vida auditable

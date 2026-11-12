@@ -16,7 +16,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Brand, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { createIncident } from '@/services/incidentService';
+import { createIncident, type IncidentPriority } from '@/services/incidentService';
 
 interface CreateIncidentFormProps {
   onCancel: () => void;
@@ -34,7 +34,7 @@ const PRIORITIES = [
   { label: 'Baja', value: 'Baja', color: '#10b981' },
   { label: 'Media', value: 'Media', color: '#f59e0b' },
   { label: 'Alta', value: 'Alta', color: '#ef4444' },
-];
+] as const;
 
 /** Muestra un aviso: alert() en web y Alert.alert() en nativo. */
 function showMessage(title: string, message: string) {
@@ -52,7 +52,7 @@ export function CreateIncidentForm({ onCancel, onCreated }: CreateIncidentFormPr
   const [titulo, setTitulo] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [categoria, setCategoria] = useState('');
-  const [prioridad, setPrioridad] = useState('Media');
+  const [prioridad, setPrioridad] = useState<IncidentPriority>('Media');
   const [selectedCoordinate, setSelectedCoordinate] = useState<Coordinate | null>(null);
 
   const [region, setRegion] = useState(INITIAL_REGION);
@@ -130,6 +130,7 @@ export function CreateIncidentForm({ onCancel, onCreated }: CreateIncidentFormPr
         titulo: cleanTitle,
         descripcion: cleanDescription,
         ...(categoria.trim() ? { categoria: categoria.trim() } : {}),
+        prioridad,
         latitud: selectedCoordinate.latitude,
         longitud: selectedCoordinate.longitude,
       });
