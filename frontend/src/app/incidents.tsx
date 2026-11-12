@@ -42,11 +42,12 @@ export default function IncidentsScreen() {
   const [loadingList, setLoadingList] = useState<boolean>(true);
   const [listError, setListError] = useState<{ userId: number; message: string } | null>(null);
   const listRequestId = useRef(0);
-  const incidents = incidentList?.userId === user?.id ? incidentList.incidents : [];
+  const incidents =
+    incidentList && incidentList.userId === user?.id ? incidentList.incidents : [];
   const errorList =
     authStatus === 'signedOut'
       ? 'Inicia sesión para consultar tus incidencias.'
-      : listError?.userId === user?.id
+      : listError && listError.userId === user?.id
         ? listError.message
         : null;
   const isLoadingList = authStatus === 'loading' || (authStatus === 'signedIn' && loadingList);
