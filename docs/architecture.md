@@ -308,7 +308,7 @@ El registro completo está en [`docs/adr/`](adr/README.md).
 | [005](adr/005-cliente-multiplataforma-expo.md) | Cliente multiplataforma con Expo y React Native | Accepted |
 | [006](adr/006-esquema-bd-explicito-sql.md) | Esquema de base de datos explícito en SQL | Accepted |
 | [007](adr/007-configuracion-por-entorno-twelve-factor.md) | Configuración por variables de entorno y Docker Compose | Accepted |
-| [008](adr/008-ciclo-vida-maquina-estados.md) | Ciclo de vida como máquina de estados | Proposed |
+| [008](adr/008-ciclo-vida-maquina-estados.md) | Ciclo de vida como máquina de estados | Accepted |
 | [009](adr/009-autenticacion-autorizacion-jwt.md) | Autenticación con JWT y roles | Accepted |
 | [010](adr/010-representacion-localizacion.md) | Localización como latitud y longitud numéricas | Accepted |
 | [011](adr/011-convenciones-api-rest.md) | Convenciones de la API REST | Proposed |
