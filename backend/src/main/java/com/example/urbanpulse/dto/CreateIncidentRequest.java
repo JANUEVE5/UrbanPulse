@@ -37,6 +37,14 @@ public class CreateIncidentRequest {
     @Digits(integer = 3, fraction = 6)
     private BigDecimal longitud;
 
+    private Integer urbanAssetId;
+
+    @Size(max = 200)
+    private String localizacion;
+
+    public CreateIncidentRequest() {
+    }
+
     public String getTitulo() {
         return titulo;
     }
@@ -83,5 +91,21 @@ public class CreateIncidentRequest {
 
     public void setPrioridad(String prioridad) {
         this.prioridad = prioridad;
+    }
+
+    public Integer getUrbanAssetId() {
+        return urbanAssetId;
+    }
+
+    public void setUrbanAssetId(Integer urbanAssetId) {
+        this.urbanAssetId = urbanAssetId;
+    }
+
+    public String getLocalizacion() {
+        return localizacion;
+    }
+
+    public void setLocalizacion(String localizacion) {
+        this.localizacion = localizacion;
     }
 }

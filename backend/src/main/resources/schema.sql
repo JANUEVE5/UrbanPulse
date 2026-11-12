@@ -18,7 +18,12 @@ CREATE TABLE "User" (
 
 CREATE TABLE "UrbanAsset" (
                               id              INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-                              tipo            VARCHAR(50) NOT NULL
+                              tipo            VARCHAR(50) NOT NULL,
+                              nombre          VARCHAR(200),
+                              latitud         NUMERIC(9,6),
+                              longitud        NUMERIC(9,6),
+                              fuente          VARCHAR(100),
+                              metadatos       TEXT
 );
 
 CREATE TABLE "Incident" (

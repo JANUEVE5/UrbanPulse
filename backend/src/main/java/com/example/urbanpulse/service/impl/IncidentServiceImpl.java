@@ -14,6 +14,7 @@ import com.example.urbanpulse.repository.AppUserRepository;
 import com.example.urbanpulse.repository.IncidentCommentRepository;
 import com.example.urbanpulse.repository.IncidentRepository;
 import com.example.urbanpulse.repository.StatusChangeRepository;
+import com.example.urbanpulse.repository.UrbanAssetRepository;
 import com.example.urbanpulse.service.IncidentService;
 import com.example.urbanpulse.service.IncidentStatus;
 import org.springframework.http.HttpStatus;
@@ -44,17 +45,20 @@ public class IncidentServiceImpl implements IncidentService {
     private final StatusChangeRepository statusChangeRepository;
     private final AppUserRepository appUserRepository;
     private final IncidentCommentRepository incidentCommentRepository;
+    private final UrbanAssetRepository urbanAssetRepository;
 
     public IncidentServiceImpl(
             IncidentRepository incidentRepository,
             StatusChangeRepository statusChangeRepository,
             AppUserRepository appUserRepository,
-            IncidentCommentRepository incidentCommentRepository
+            IncidentCommentRepository incidentCommentRepository,
+            UrbanAssetRepository urbanAssetRepository
     ) {
         this.incidentRepository = incidentRepository;
         this.statusChangeRepository = statusChangeRepository;
         this.appUserRepository = appUserRepository;
         this.incidentCommentRepository = incidentCommentRepository;
+        this.urbanAssetRepository = urbanAssetRepository;
     }
 
     @Override
@@ -63,7 +67,8 @@ public class IncidentServiceImpl implements IncidentService {
                 .map(incident -> {
                     List<StatusChange> statusChanges = statusChangeRepository.findByIncidentIdOrderByInstanteAsc(id);
                     List<IncidentComment> comments = incidentCommentRepository.findByIncidentIdOrderByCreatedAtAsc(id);
-                    return IncidentDTO.fromEntity(incident, statusChanges, comments);
+                    IncidentDTO dto = IncidentDTO.fromEntity(incident, statusChanges, comments);
+                    return dto;
                 });
     }
 
@@ -94,7 +99,20 @@ public class IncidentServiceImpl implements IncidentService {
         incident.setPrioridad(request.getPrioridad() == null ? "Media" : request.getPrioridad());
         incident.setCreador(creator);
 
-        return IncidentDTO.fromEntity(incidentRepository.save(incident));
+        // Asociación explícita de activo urbano si se proporciona
+        if (request.getUrbanAssetId() != null) {
+            urbanAssetRepository.findById(request.getUrbanAssetId())
+                    .ifPresent(incident::setUrbanAsset);
+        }
+
+        String localizacion = request.getLocalizacion() != null && !request.getLocalizacion().isBlank()
+                ? request.getLocalizacion().trim()
+                : null;
+        incident.setLocalizacion(localizacion);
+
+        Incident saved = incidentRepository.save(incident);
+        IncidentDTO dto = IncidentDTO.fromEntity(saved);
+        return dto;
     }
 
     @Override

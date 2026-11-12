@@ -15,6 +15,7 @@ import com.example.urbanpulse.repository.IncidentRepository;
 import com.example.urbanpulse.repository.IncidentCommentRepository;
 import com.example.urbanpulse.repository.AppUserRepository;
 import com.example.urbanpulse.repository.StatusChangeRepository;
+import com.example.urbanpulse.repository.UrbanAssetRepository;
 import com.example.urbanpulse.service.impl.IncidentServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -46,6 +47,9 @@ class IncidentServiceTest {
 
     @Mock
     private IncidentCommentRepository incidentCommentRepository;
+
+    @Mock
+    private UrbanAssetRepository urbanAssetRepository;
 
     @InjectMocks
     private IncidentServiceImpl incidentService;

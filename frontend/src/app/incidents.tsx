@@ -29,6 +29,7 @@ import {
   updateIncidentPriority,
   updateIncidentStatus,
 } from '@/services/incidentService';
+import { extractStopLines, extractStopName } from '@/services/urbanAssetService';
 
 export default function IncidentsScreen() {
   const router = useRouter();
@@ -762,14 +763,14 @@ function IncidentDetailView({
               🏙️ UBICACIÓN Y ACTIVO URBANO
             </ThemedText>
 
-            {/* Dirección escrita (opcional) */}
-            {incident.localizacion ? (
+            {/* Dirección normalizada devuelta por el backend (RF04) */}
+            {incident.direccionNormalizada || incident.localizacion ? (
               <View style={styles.attributeRow}>
                 <ThemedText type="smallBold" themeColor="textSecondary" style={styles.attributeLabel}>
                   Dirección:
                 </ThemedText>
                 <ThemedText type="default" style={styles.attributeValue}>
-                  📍 {incident.localizacion}
+                  📍 {incident.direccionNormalizada || incident.localizacion}
                 </ThemedText>
               </View>
             ) : null}
@@ -810,24 +811,45 @@ function IncidentDetailView({
                       longitudeDelta: 0.005,
                     }}
                     selectedCoordinate={coords}
+                    urbanAssets={incident.urbanAsset ? [incident.urbanAsset] : []}
                   />
                 </View>
                 <ThemedText type="small" themeColor="textSecondary" style={styles.mapHintText}>
-                  📍 Ubicación de la incidencia marcada en el mapa
+                  📍 Ubicación de la incidencia marcada en el mapa {incident.urbanAsset ? ' (con parada asociada)' : ''}
                 </ThemedText>
               </View>
             )}
 
-            <View style={styles.attributeRow}>
-              <ThemedText type="smallBold" themeColor="textSecondary" style={styles.attributeLabel}>
-                Activo Urbano Asociado:
-              </ThemedText>
-              <ThemedText type="default" style={styles.attributeValue}>
-                {incident.urbanAssetTipo
-                  ? `${incident.urbanAssetTipo} (ID: ${incident.urbanAssetId})`
-                  : 'Ninguno asignado'}
-              </ThemedText>
-            </View>
+            {/* Tarjeta de Activo Urbano Relacionado */}
+            {incident.urbanAsset || incident.urbanAssetId || incident.urbanAssetTipo === 'BUS_STOP' ? (
+              <View style={styles.detailUrbanAssetCard}>
+                <ThemedText type="smallBold" style={styles.detailUrbanAssetBadge}>
+                  🚌 Activo Urbano Relacionado: Parada de Autobús
+                </ThemedText>
+                <ThemedText type="default" style={styles.detailUrbanAssetName}>
+                  {incident.urbanAsset
+                    ? extractStopName(incident.urbanAsset)
+                    : (incident.urbanAssetTipo || `Parada #${incident.urbanAssetId}`)}
+                </ThemedText>
+                {incident.urbanAsset && extractStopLines(incident.urbanAsset) ? (
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Líneas EMT: {extractStopLines(incident.urbanAsset)}
+                  </ThemedText>
+                ) : null}
+                <ThemedText type="small" themeColor="textSecondary">
+                  Fuente: {incident.urbanAsset?.fuente || 'OpenData Málaga - EMT'} {incident.urbanAssetId ? `(ID: ${incident.urbanAssetId})` : ''}
+                </ThemedText>
+              </View>
+            ) : (
+              <View style={styles.attributeRow}>
+                <ThemedText type="smallBold" themeColor="textSecondary" style={styles.attributeLabel}>
+                  Activo Urbano Asociado:
+                </ThemedText>
+                <ThemedText type="default" style={styles.attributeValue}>
+                  Ninguno asignado
+                </ThemedText>
+              </View>
+            )}
           </ThemedView>
 
           {/* Tarjeta 3: Creador y Registro */}
@@ -1498,5 +1520,21 @@ const styles = StyleSheet.create({
   },
   emptyHistory: {
     paddingVertical: Spacing.two,
+  },
+  detailUrbanAssetCard: {
+    padding: Spacing.three,
+    borderRadius: Spacing.two,
+    backgroundColor: 'rgba(37, 99, 235, 0.08)',
+    borderWidth: 1,
+    borderColor: '#93c5fd',
+    gap: 4,
+  },
+  detailUrbanAssetBadge: {
+    color: '#1d4ed8',
+    fontSize: 12,
+    letterSpacing: 0.3,
+  },
+  detailUrbanAssetName: {
+    fontSize: 15,
   },
 });
