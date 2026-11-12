@@ -28,7 +28,7 @@ import {
 export default function IncidentsScreen() {
   const router = useRouter();
   const searchParams = useLocalSearchParams<{ id?: string; vista?: string; crear?: string }>();
-  const { status: authStatus } = useAuth();
+  const { status: authStatus, user } = useAuth();
   const selectedId = searchParams.id ? Number(searchParams.id) : null;
   // Vista principal: mapa por defecto; ?vista=lista muestra el listado
   const showList = searchParams.vista === 'lista';
@@ -38,10 +38,18 @@ export default function IncidentsScreen() {
   const isWide = useIsWideLayout();
 
   // Estados para la lista
-  const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [incidentList, setIncidentList] = useState<{ userId: number; incidents: Incident[] } | null>(null);
   const [loadingList, setLoadingList] = useState<boolean>(true);
-  const [errorList, setErrorList] = useState<string | null>(null);
+  const [listError, setListError] = useState<{ userId: number; message: string } | null>(null);
   const listRequestId = useRef(0);
+  const incidents = incidentList?.userId === user?.id ? incidentList.incidents : [];
+  const errorList =
+    authStatus === 'signedOut'
+      ? 'Inicia sesión para consultar tus incidencias.'
+      : listError?.userId === user?.id
+        ? listError.message
+        : null;
+  const isLoadingList = authStatus === 'loading' || (authStatus === 'signedIn' && loadingList);
 
   // Estados para el detalle
   const [incidentDetail, setIncidentDetail] = useState<Incident | null>(null);
@@ -51,21 +59,26 @@ export default function IncidentsScreen() {
   const [creationSuccess, setCreationSuccess] = useState(false);
 
   const fetchIncidents = useCallback(async () => {
-    if (authStatus !== 'signedIn') return;
+    if (authStatus !== 'signedIn' || user === null) return;
     const requestId = ++listRequestId.current;
     setLoadingList(true);
-    setErrorList(null);
+    setListError(null);
     try {
       const data = await getIncidents();
-      if (requestId === listRequestId.current) setIncidents(data);
+      if (requestId === listRequestId.current) {
+        setIncidentList({ userId: user.id, incidents: data });
+      }
     } catch (err: any) {
       if (requestId === listRequestId.current) {
-        setErrorList(err.message || 'No se pudieron cargar las incidencias.');
+        setListError({
+          userId: user.id,
+          message: err.message || 'No se pudieron cargar las incidencias.',
+        });
       }
     } finally {
       if (requestId === listRequestId.current) setLoadingList(false);
     }
-  }, [authStatus]);
+  }, [authStatus, user]);
 
   const fetchDetail = useCallback(async (id: number) => {
     setLoadingDetail(true);
@@ -84,9 +97,6 @@ export default function IncidentsScreen() {
     if (authStatus === 'loading') return;
     if (authStatus === 'signedOut') {
       listRequestId.current += 1;
-      setIncidents([]);
-      setErrorList('Inicia sesión para consultar tus incidencias.');
-      setLoadingList(false);
       return;
     }
     void Promise.resolve().then(() => {
@@ -171,12 +181,12 @@ export default function IncidentsScreen() {
       <View style={[styles.mapScreen, { backgroundColor: theme.background }]}>
         <IncidentsMap incidents={mapIncidents} onOpenIncident={handleSelectIncident} />
 
-        {(loadingList || errorList || creationSuccess) && (
+        {(isLoadingList || errorList || creationSuccess) && (
           <View
             style={[styles.mapBanner, { top: insets.top + (isWide ? Spacing.three : FloatingMenuInset) }]}
             pointerEvents="box-none">
             <ThemedView type="background" style={[styles.mapBannerBox, { borderColor: theme.border }]}>
-              {loadingList ? (
+              {isLoadingList ? (
                 <ThemedText type="small">Cargando incidencias…</ThemedText>
               ) : errorList ? (
                 <>
@@ -245,7 +255,7 @@ export default function IncidentsScreen() {
             // =================== VISTA LISTADO ===================
             <IncidentListView
               incidents={incidents}
-              loading={loadingList}
+              loading={isLoadingList}
               error={errorList}
               onSelectIncident={handleSelectIncident}
               onRetry={fetchIncidents}
