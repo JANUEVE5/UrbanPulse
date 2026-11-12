@@ -4,7 +4,7 @@
 
 -- 1. Usuarios del sistema (10 usuarios). Contraseña de todos (solo desarrollo): urbanpulse-dev
 --    Roles: 1 administrador, 2 operadores, 2 técnicos, 1 analista y 4 ciudadanos.
-INSERT INTO "User" (nombre, correo, contraseña, rol) VALUES
+INSERT INTO "User" (nombre, correo, password, rol) VALUES
     ('Carlos Morales', 'carlos.morales@urbanpulse.es', '$2a$10$JsXBwaVhn78a/3X.BYgmyus4OUsZOFpZ0l/SWAMU.OuwF5QSU6baK', 'ADMIN'),
     ('Lucía Navarro', 'lucia.navarro@urbanpulse.es', '$2a$10$JsXBwaVhn78a/3X.BYgmyus4OUsZOFpZ0l/SWAMU.OuwF5QSU6baK', 'OPERATOR'),
     ('Alejandro Domínguez', 'alejandro.dominguez@urbanpulse.es', '$2a$10$JsXBwaVhn78a/3X.BYgmyus4OUsZOFpZ0l/SWAMU.OuwF5QSU6baK', 'OPERATOR'),

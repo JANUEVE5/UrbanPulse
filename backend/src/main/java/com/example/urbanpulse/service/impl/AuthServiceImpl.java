@@ -44,7 +44,7 @@ public class AuthServiceImpl implements AuthService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe una cuenta con ese correo.");
         }
 
-        AppUser user = new AppUser(request.nombre().trim(), correo, passwordEncoder.encode(request.contrasena()));
+        AppUser user = new AppUser(request.nombre().trim(), correo, passwordEncoder.encode(request.password()));
         // El registro público solo crea ciudadanos; los demás roles los asigna administración
         user.setRol(Rol.CITIZEN);
         return toAuthResponse(userRepository.save(user));
@@ -53,7 +53,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public AuthResponse login(LoginRequest request) {
         AppUser user = userRepository.findByCorreoIgnoreCase(normalizeEmail(request.correo()))
-                .filter(u -> passwordEncoder.matches(request.contrasena(), u.getContrasena()))
+                .filter(u -> passwordEncoder.matches(request.password(), u.getPassword()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, INVALID_CREDENTIALS));
         return toAuthResponse(user);
     }

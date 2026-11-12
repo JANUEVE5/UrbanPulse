@@ -108,7 +108,7 @@ Crear incidencias exige **iniciar sesión**. Primero se obtiene un token y luego
 ```bash
 TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"correo":"david.serrano@urbanpulse.es","contrasena":"urbanpulse-dev"}' | sed -E 's/.*"token":"([^"]+)".*/\1/')
+  -d '{"correo":"david.serrano@urbanpulse.es","password":"urbanpulse-dev"}' | sed -E 's/.*"token":"([^"]+)".*/\1/')
 
 curl -i -X POST http://localhost:8080/api/incidents \
   -H "Content-Type: application/json" \

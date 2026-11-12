@@ -164,7 +164,7 @@ sequenceDiagram
     participant App as App cliente
     participant Sec as Spring Security
     participant API as Controllers
-    App->>API: POST /api/auth/login (correo, contraseña)
+    App->>API: POST /api/auth/login (correo, password)
     API-->>App: JWT firmado (sub = id, rol) + datos del usuario
     App->>Sec: POST /api/incidents · Authorization: Bearer JWT
     Sec->>Sec: valida firma y caducidad; rol → ROLE_<rol>
