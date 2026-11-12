@@ -2,15 +2,13 @@
 
 ## Estado
 
-Proposed
+Accepted
 
 ## Contexto
 
-RF12 exige que los cambios de estado respeten las transiciones permitidas y queden auditados, y RF18 que se
-registren las decisiones relevantes. Actualmente el estado y la prioridad de `Incident` son texto libre, y una
-incidencia nueva se crea con el estado `"Abierta"`, que no existe en el ciclo de vida definido (`REPORTED`,
-`VALIDATED`, `REJECTED`, `ASSIGNED`, `IN_PROGRESS`, `RESOLVED`, `REOPENED`, `CLOSED`). Nada impide hoy una
-transición inválida, como pasar de `REPORTED` a `CLOSED`.
+RF12 exige que los cambios de estado respeten las transiciones permitidas y queden auditados. La aplicación
+usa las etiquetas de estado en español y crea cada incidencia como `Abierta`. Los cambios deben impedir saltos
+de estado y conservar quién hizo cada transición, cuándo y por qué.
 
 ## Opciones consideradas
 
@@ -20,15 +18,18 @@ transición inválida, como pasar de `REPORTED` a `CLOSED`.
 
 ## Decisión
 
-Modelar el estado como un `enum` Java (guardado como `VARCHAR` con `CHECK` en la base de datos) y centralizar
-las transiciones permitidas en un único servicio de dominio. Ese servicio es el único que puede cambiar el
-estado. Cada transición inserta, en la misma transacción, un registro en `StatusChange` (actor, instante,
-estado origen, estado destino y motivo). `StatusChange` es de solo inserción.
+Centralizar la máquina de estados en `IncidentStatus` y validar las transiciones en `IncidentServiceImpl`.
+Los estados permitidos son `Abierta`, `En revisión`, `Resuelta` y `Cerrada`; solo se permite avanzar al
+siguiente y `Cerrada` es terminal. El endpoint de cambio de estado exige `OPERATOR`, `TECHNICIAN` o `ADMIN`.
+Cada transición válida actualiza la incidencia e inserta, en la misma transacción, un `StatusChange` con el
+usuario autenticado, la transición, el motivo opcional y la fecha. El detalle devuelve el historial en orden
+cronológico.
 
 ## Consecuencias
 
 + Las transiciones inválidas se rechazan en un único punto y se pueden probar de forma exhaustiva.
-+ El historial queda completo y no se puede alterar, como exigen RF12 y RF18.
++ Los saltos inválidos se rechazan con `409 Conflict`; los estados desconocidos, con `400 Bad Request`.
++ El control de rol se aplica en el backend y no depende de ocultar controles en la interfaz.
++ El historial de transiciones no se sobrescribe y se conserva en `StatusChange`.
 + Es más sencillo que introducir una librería de máquinas de estados (pauta de la solución más sencilla).
-- Requiere migrar los datos existentes (`"Abierta"` → `REPORTED`) y ajustar `schema.sql` y `data.sql`.
-- Añadir un estado nuevo implica tocar el enum, la tabla de transiciones y la restricción `CHECK`.
+- Añadir un estado o transición implica actualizar `IncidentStatus` y sus pruebas.

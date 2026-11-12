@@ -76,6 +76,8 @@ el autor se toma del usuario autenticado. La respuesta es `201 Created` con la i
 el listado de comentarios actualizado. Se devuelve `400 Bad Request` si el comentario está
 vacío o supera el límite, `401 Unauthorized` sin autenticación y `404 Not Found` si la
 incidencia no existe. Se guarda el autor y la fecha de creación en `"IncidentComment"`.
+Los comentarios están disponibles para cualquier usuario autenticado; no requieren un rol
+municipal.
 
 ## Funcionalidad RF12: ciclo de vida de incidencias
 
@@ -103,9 +105,10 @@ opcional y la fecha. El detalle de la incidencia devuelve ese historial en orden
 ```
 
 Devuelve `200 OK` con la incidencia actualizada y su historial, `404 Not Found` si la
-incidencia no existe, `400 Bad Request` si falta el estado o supera el límite de
-caracteres, y `409 Conflict` si la transición no está permitida. El campo `motivo`
-admite hasta 400 caracteres.
+incidencia no existe, `400 Bad Request` si falta el estado o el motivo supera el límite de
+caracteres, `401 Unauthorized` sin autenticación, `403 Forbidden` sin un rol autorizado y
+`409 Conflict` si la transición no está permitida. El campo `motivo` admite hasta 400
+caracteres.
 Principios del producto:
 
 - **La incidencia es el centro del dominio** y conserva un ciclo de vida auditable

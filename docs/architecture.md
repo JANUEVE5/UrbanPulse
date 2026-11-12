@@ -154,8 +154,11 @@ flowchart LR
 | `GET` | `/api/auth/me` | Autenticado | Datos y rol del usuario del token. | RF01 |
 | `GET` | `/api/incidents` | Autenticado | Listado de incidencias creadas por el usuario del JWT; alimenta el mapa y la vista de lista. | RF06 |
 | `GET` | `/api/incidents/mine` | Autenticado | Alias explícito para el listado de incidencias propias. | RF06 |
-| `GET` | `/api/incidents/{id}` | Público | Detalle con su historial de cambios de estado. | RF06 |
+| `GET` | `/api/incidents/{id}` | Público | Detalle con su historial de cambios de estado y comentarios. | RF06, RF12 |
 | `POST` | `/api/incidents` | Autenticado | Registro de una incidencia a nombre del usuario del token. | RF03, RF04 |
+| `PATCH` | `/api/incidents/{id}/status` | `OPERATOR`, `TECHNICIAN`, `ADMIN` | Avanza la incidencia al siguiente estado permitido y registra el actor autenticado, motivo y fecha. | RF12 |
+| `PATCH` | `/api/incidents/{id}/priority` | `OPERATOR`, `ADMIN` | Cambia la prioridad a `Baja`, `Media` o `Alta`. | RF10 |
+| `POST` | `/api/incidents/{id}/comments` | Autenticado | Añade un comentario de hasta 400 caracteres atribuido al usuario autenticado. | RF13 |
 | `GET` | `/api/users` | `ADMIN` | Listado de usuarios con su rol (sin contraseñas). | RF02 |
 
 ### Autenticación y autorización ([ADR-009](adr/009-autenticacion-autorizacion-jwt.md))
@@ -260,31 +263,23 @@ El esquema físico está en [`backend/src/main/resources/schema.sql`](../backend
 
 ```mermaid
 stateDiagram-v2
-    [*] --> REPORTED
-    REPORTED --> VALIDATED : operador valida
-    REPORTED --> REJECTED : fuera de alcance / inválida / duplicada
-    VALIDATED --> ASSIGNED : asignación a departamento, equipo o técnico
-    ASSIGNED --> IN_PROGRESS : el técnico inicia la actuación
-    IN_PROGRESS --> RESOLVED : actuación documentada
-    RESOLVED --> CLOSED : verificación o plazo cumplido
-    RESOLVED --> REOPENED : resolución no efectiva / nueva evidencia
-    REJECTED --> [*]
-    CLOSED --> [*]
+    [*] --> Abierta
+    Abierta --> En_revision
+    En_revision --> Resuelta
+    Resuelta --> Cerrada
+    Cerrada --> [*]
 ```
 
-| Estado | Significado |
+| Estado | Siguiente estado permitido |
 |---|---|
-| `REPORTED` | Incidencia recibida y pendiente de revisión. |
-| `VALIDATED` | Contenido suficiente y competencia municipal confirmada. |
-| `REJECTED` | Fuera de alcance, inválida o duplicada, con el motivo registrado. |
-| `ASSIGNED` | Asignada a un departamento, equipo o técnico. |
-| `IN_PROGRESS` | Hay una actuación en curso. |
-| `RESOLVED` | Actuación completada y documentada. |
-| `REOPENED` | La resolución no fue efectiva o aparece nueva evidencia. |
-| `CLOSED` | Cierre definitivo tras verificación o plazo establecido. |
+| `Abierta` | `En revisión` |
+| `En revisión` | `Resuelta` |
+| `Resuelta` | `Cerrada` |
+| `Cerrada` | Ninguno (estado terminal) |
 
-Cada transición se registra en `StatusChange` (actor, instante y motivo) y nunca se sobrescribe (RF12, RF18).
-La forma de implementarlo se propone en [ADR-008](adr/008-ciclo-vida-maquina-estados.md).
+Cada transición se registra en `StatusChange` con el actor autenticado, instante, transición y motivo; el
+detalle devuelve los registros en orden cronológico (RF12). La implementación y sus permisos se documentan
+en el [ADR-008](adr/008-ciclo-vida-maquina-estados.md).
 
 ---
 
