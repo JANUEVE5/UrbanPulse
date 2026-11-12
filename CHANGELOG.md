@@ -9,6 +9,11 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ### Added
 
+- RF10/RF12: selección de prioridad (`Baja`, `Media` o `Alta`) al registrar una incidencia y controles de
+  cambio de prioridad y estado en el detalle según el rol del usuario.
+- RF12: transiciones de estado con rechazo desde `Abierta` o `En revisión`, reapertura desde `Resuelta` o
+  `Cerrada`, motivo obligatorio para estas acciones e historial cronológico de actor, transición y fecha.
+- RF13: comentarios de hasta 400 caracteres en incidencias, persistidos con autor y fecha.
 - RF01/RF02 (frontend): pantallas de iniciar sesión y crear cuenta; la sesión se guarda (almacén cifrado en
   móvil, `localStorage` en web) y se restaura al abrir la app. Crear una incidencia sin sesión lleva al login y
   después abre el formulario. La barra lateral muestra el usuario, su rol y «Cerrar sesión», y la sección
@@ -45,6 +50,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ### Changed
 
+- RF12: los cambios de estado requieren los roles `OPERATOR`, `TECHNICIAN` o `ADMIN`; los cambios de
+  prioridad requieren `OPERATOR` o `ADMIN`. El backend verifica los roles y registra al actor autenticado.
+- La creación de incidencias requiere ubicación geográfica válida y autenticación, conforme al contrato actual.
 - Crear incidencias exige estar autenticado; el creador es el usuario del token (antes, el primer usuario
   de la base de datos). Consultar incidencias sigue siendo público.
 - `GET /api/users` solo para `ADMIN` y sin exponer la entidad JPA (devuelve `UserDTO`).
