@@ -58,6 +58,7 @@ class AuthIntegrationTest {
     @DisplayName("Los permisos por rol se aplican con tokens reales")
     void rolesAreEnforced() throws Exception {
         String admin = login("carlos.morales@urbanpulse.es");
+        String operator = login("lucia.navarro@urbanpulse.es");
         String citizen = login("david.serrano@urbanpulse.es");
 
         assertEquals(401, send("GET", "/api/incidents", null, null).statusCode());
@@ -67,6 +68,16 @@ class AuthIntegrationTest {
                 "El listado debe incluir incidencias creadas por David Serrano");
         assertFalse(incidents.body().contains("Farola rota con cableado expuesto"),
                 "El listado no debe incluir incidencias de otros usuarios");
+        HttpResponse<String> operatorIncidents = send("GET", "/api/incidents", null, operator);
+        assertEquals(200, operatorIncidents.statusCode(), operatorIncidents.body());
+        assertTrue(operatorIncidents.body().contains("Farola rota con cableado expuesto"),
+                "El operador debe ver incidencias de otros usuarios");
+        assertTrue(operatorIncidents.body().contains("Papelera metálica desprendida"),
+                "El operador también debe ver las incidencias del ciudadano");
+        HttpResponse<String> adminIncidents = send("GET", "/api/incidents", null, admin);
+        assertEquals(200, adminIncidents.statusCode(), adminIncidents.body());
+        assertTrue(adminIncidents.body().contains("Farola rota con cableado expuesto"),
+                "La administración debe ver incidencias de otros usuarios");
         assertEquals(401, send("GET", "/api/users", null, null).statusCode());
         assertEquals(403, send("GET", "/api/users", null, citizen).statusCode());
         assertEquals(200, send("GET", "/api/users", null, admin).statusCode());

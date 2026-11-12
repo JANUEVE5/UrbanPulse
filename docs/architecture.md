@@ -152,8 +152,8 @@ flowchart LR
 | `POST` | `/api/auth/register` | Público | Crea una cuenta de ciudadano y devuelve su token. | RF01 |
 | `POST` | `/api/auth/login` | Público | Inicia sesión y devuelve un JWT. | RF01 |
 | `GET` | `/api/auth/me` | Autenticado | Datos y rol del usuario del token. | RF01 |
-| `GET` | `/api/incidents` | Autenticado | Listado de incidencias creadas por el usuario del JWT; alimenta el mapa y la vista de lista. | RF06 |
-| `GET` | `/api/incidents/mine` | Autenticado | Alias explícito para el listado de incidencias propias. | RF06 |
+| `GET` | `/api/incidents` | Autenticado | `CITIZEN`: incidencias propias; resto de roles: todas. Alimenta el mapa y la vista de lista. | RF06 |
+| `GET` | `/api/incidents/mine` | Autenticado | Aplica el mismo filtrado por rol que el listado principal. | RF06 |
 | `GET` | `/api/incidents/{id}` | Público | Detalle con su historial de cambios de estado. | RF06 |
 | `POST` | `/api/incidents` | Autenticado | Registro de una incidencia a nombre del usuario del token. | RF03, RF04 |
 | `GET` | `/api/users` | `ADMIN` | Listado de usuarios con su rol (sin contraseñas). | RF02 |
@@ -180,7 +180,7 @@ sequenceDiagram
 ```
 
 - La API no guarda sesiones: cada petición lleva su token (Twelve-Factor, factor VI).
-- El mapa y el listado obtienen el ID del creador del JWT y consultan solo sus incidencias.
+- El mapa y el listado requieren JWT; `CITIZEN` ve solo las incidencias propias y el resto de roles ve todas.
 - Los tokens se firman con HMAC-SHA256 y la clave `JWT_SECRET`; caducan a los `JWT_EXPIRATION_MINUTES`.
 - Las reglas de acceso están en `SecurityConfig` y, por método, con `@PreAuthorize("hasRole('...')")`.
 - En la app, `AuthProvider` (`src/context/auth-context.tsx`) guarda el token (almacén cifrado en móvil,
@@ -318,4 +318,5 @@ El registro completo está en [`docs/adr/`](adr/README.md).
 | [010](adr/010-representacion-localizacion.md) | Localización como latitud y longitud numéricas | Accepted |
 | [011](adr/011-convenciones-api-rest.md) | Convenciones de la API REST | Proposed |
 | [012](adr/012-despliegue-contenedores.md) | Despliegue como imagen de contenedor | Proposed |
-| [013](adr/013-listado-de-incidencias-propias.md) | Listado de incidencias propias en el mapa y la vista de lista | Accepted |
+| [013](adr/013-listado-de-incidencias-propias.md) | Listado de incidencias propias en el mapa y la vista de lista | Superseded by ADR-014 |
+| [014](adr/014-listado-de-incidencias-segun-rol.md) | Mostrar incidencias según el rol autenticado | Accepted |

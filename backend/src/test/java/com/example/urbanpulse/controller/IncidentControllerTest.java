@@ -4,6 +4,7 @@ import com.example.urbanpulse.config.SecurityConfig;
 import com.example.urbanpulse.dto.IncidentDTO;
 import com.example.urbanpulse.dto.CreateIncidentRequest;
 import com.example.urbanpulse.dto.StatusChangeDTO;
+import com.example.urbanpulse.entity.Rol;
 import com.example.urbanpulse.service.IncidentService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -36,8 +37,8 @@ class IncidentControllerTest {
     private IncidentService incidentService;
 
     @Test
-    @DisplayName("GET /api/incidents debe retornar solo las incidencias del usuario autenticado")
-    void testGetMyIncidents() throws Exception {
+    @DisplayName("GET /api/incidents debe retornar las incidencias del ciudadano autenticado")
+    void testGetCitizenIncidents() throws Exception {
         IncidentDTO dto = new IncidentDTO();
         dto.setId(1);
         dto.setReporteCentral("El semáforo no funciona.");
@@ -50,7 +51,7 @@ class IncidentControllerTest {
         dto.setNombreCreador("Ana García");
         dto.setCreatedAt(LocalDateTime.now());
 
-        when(incidentService.getMyIncidents(1)).thenReturn(List.of(dto));
+        when(incidentService.getIncidents(1, Rol.CITIZEN)).thenReturn(List.of(dto));
 
         mockMvc.perform(get("/api/incidents").with(citizenToken())
                         .contentType(MediaType.APPLICATION_JSON))
@@ -72,9 +73,19 @@ class IncidentControllerTest {
     }
 
     @Test
-    @DisplayName("GET /api/incidents/mine conserva el listado filtrado por el usuario")
+    @DisplayName("GET /api/incidents devuelve todas las incidencias a un operador")
+    void testGetAllIncidentsForOperator() throws Exception {
+        when(incidentService.getIncidents(2, Rol.OPERATOR)).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/incidents").with(operatorToken()))
+                .andExpect(status().isOk())
+                .andExpect(content().json("[]"));
+    }
+
+    @Test
+    @DisplayName("GET /api/incidents/mine mantiene el filtro de ciudadano")
     void testGetMyIncidentsAlias() throws Exception {
-        when(incidentService.getMyIncidents(1)).thenReturn(List.of());
+        when(incidentService.getIncidents(1, Rol.CITIZEN)).thenReturn(List.of());
 
         mockMvc.perform(get("/api/incidents/mine").with(citizenToken()))
                 .andExpect(status().isOk())
@@ -232,5 +243,9 @@ class IncidentControllerTest {
     /** Token simulado de un ciudadano con id 1 (sujeto del JWT). */
     private static org.springframework.test.web.servlet.request.RequestPostProcessor citizenToken() {
         return jwt().jwt(token -> token.subject("1").claim(SecurityConfig.ROLE_CLAIM, "CITIZEN"));
+    }
+
+    private static org.springframework.test.web.servlet.request.RequestPostProcessor operatorToken() {
+        return jwt().jwt(token -> token.subject("2").claim(SecurityConfig.ROLE_CLAIM, "OPERATOR"));
     }
 }
