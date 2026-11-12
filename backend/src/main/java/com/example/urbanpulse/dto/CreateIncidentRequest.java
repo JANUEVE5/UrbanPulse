@@ -1,6 +1,7 @@
 package com.example.urbanpulse.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 public class CreateIncidentRequest {
@@ -15,6 +16,9 @@ public class CreateIncidentRequest {
 
     @Size(max = 50)
     private String categoria;
+
+    @Pattern(regexp = "Baja|Media|Alta")
+    private String prioridad;
 
     public String getTitulo() {
         return titulo;
@@ -38,5 +42,13 @@ public class CreateIncidentRequest {
 
     public void setCategoria(String categoria) {
         this.categoria = categoria;
+    }
+
+    public String getPrioridad() {
+        return prioridad;
+    }
+
+    public void setPrioridad(String prioridad) {
+        this.prioridad = prioridad;
     }
 }

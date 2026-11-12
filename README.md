@@ -12,11 +12,12 @@ Desde **Incidencias → Crear Incidencia**, se pueden enviar:
 | Título | Obligatorio, no puede estar vacío | 100 caracteres |
 | Descripción | Obligatoria, no puede estar vacía | 400 caracteres |
 | Categoría | Opcional; texto libre | 50 caracteres |
+| Prioridad | Opcional: `Baja`, `Media` o `Alta` | — |
 
-Al crear una incidencia, el backend la guarda como `Abierta` y con prioridad inicial
-`Media`. Mientras no haya autenticación, se asigna al primer usuario registrado. Las
-incidencias antiguas siguen mostrándose usando `reporte_central` como título y descripción
-cuando no tienen esos campos separados.
+Al crear una incidencia, el backend la guarda como `Abierta`. Si no se indica prioridad,
+se usa `Media`. Mientras no haya autenticación, se asigna al primer usuario registrado.
+Las incidencias antiguas siguen mostrándose usando `reporte_central` como título y
+descripción cuando no tienen esos campos separados.
 
 ### API
 
@@ -26,13 +27,67 @@ cuando no tienen esos campos separados.
 {
   "titulo": "Bache en la calzada",
   "descripcion": "Hay un bache frente al número 12.",
-  "categoria": "Vía pública"
+  "categoria": "Vía pública",
+  "prioridad": "Alta"
 }
 ```
 
-`categoria` se puede omitir o enviar como texto vacío. `titulo` y `descripcion` deben
-contener texto. La API también conserva `GET /api/incidents` para listar y
-`GET /api/incidents/{id}` para consultar el detalle.
+`categoria` y `prioridad` se pueden omitir; la prioridad debe ser `Baja`, `Media` o `Alta`.
+`titulo` y `descripcion` deben contener texto. La API también conserva
+`GET /api/incidents` para listar y `GET /api/incidents/{id}` para consultar el detalle.
+
+La prioridad se puede cambiar después desde el detalle de la incidencia o mediante
+`PATCH /api/incidents/{id}/priority`, enviando `{"prioridad":"Alta"}` (también se aceptan
+`Media` y `Baja`). Devuelve `200 OK` con los datos actualizados; devuelve `400 Bad Request`
+si la prioridad no es válida y `404 Not Found` si no existe la incidencia.
+
+## Comentarios en incidencias
+
+El detalle (`GET /api/incidents/{id}`) incluye `comentarios`, en orden cronológico. Para
+añadir un comentario se usa `POST /api/incidents/{id}/comments`:
+
+```json
+{
+  "contenido": "Ya se avisó al equipo municipal."
+}
+```
+
+El comentario debe contener texto y admite hasta 400 caracteres. La respuesta es
+`201 Created` con la incidencia y el listado de comentarios actualizado. Se devuelve
+`400 Bad Request` si el comentario está vacío o supera el límite, `404 Not Found` si la
+incidencia no existe, y `409 Conflict` si todavía no hay usuarios registrados. Mientras
+no haya autenticación, el comentario se atribuye al primer usuario registrado; se guarda
+su autor y fecha de creación en `"IncidentComment"`.
+
+## Funcionalidad RF12: ciclo de vida de incidencias
+
+Los estados permitidos y sus transiciones son:
+
+```text
+Abierta → En revisión → Resuelta → Cerrada
+```
+
+Solo se permite avanzar al siguiente estado; `Cerrada` es terminal. Un estado desconocido
+se rechaza con `400 Bad Request` y una transición no permitida con `409 Conflict`.
+Cada transición válida actualiza la incidencia y agrega, en la misma transacción, una
+fila a `"StatusChange"` con el actor, la transición, el motivo opcional y la fecha. El
+detalle de la incidencia devuelve ese historial en orden cronológico. Mientras no haya
+autenticación, se atribuye el cambio al primer usuario registrado, igual que al crear
+incidencias.
+
+`PATCH /api/incidents/{id}/status` recibe el estado destino y, opcionalmente, el motivo:
+
+```json
+{
+  "estado": "En revisión",
+  "motivo": "Asignada al equipo de revisión"
+}
+```
+
+Devuelve `200 OK` con la incidencia actualizada y su historial, `404 Not Found` si la
+incidencia no existe, `400 Bad Request` si falta el estado o supera el límite de
+caracteres, y `409 Conflict` si la transición no está permitida. El campo `motivo`
+admite hasta 400 caracteres.
 
 ## Tecnologías
 

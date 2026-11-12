@@ -1,6 +1,7 @@
 package com.example.urbanpulse.dto;
 
 import com.example.urbanpulse.entity.Incident;
+import com.example.urbanpulse.entity.IncidentComment;
 import com.example.urbanpulse.entity.StatusChange;
 
 import java.time.LocalDateTime;
@@ -25,6 +26,7 @@ public class IncidentDTO {
     private String correoCreador;
     private LocalDateTime createdAt;
     private List<StatusChangeDTO> historial = new ArrayList<>();
+    private List<IncidentCommentDTO> comentarios = new ArrayList<>();
 
     public IncidentDTO() {
     }
@@ -34,6 +36,14 @@ public class IncidentDTO {
     }
 
     public static IncidentDTO fromEntity(Incident incident, List<StatusChange> statusChanges) {
+        return fromEntity(incident, statusChanges, null);
+    }
+
+    public static IncidentDTO fromEntity(
+            Incident incident,
+            List<StatusChange> statusChanges,
+            List<IncidentComment> comments
+    ) {
         if (incident == null) {
             return null;
         }
@@ -66,6 +76,13 @@ public class IncidentDTO {
             dto.setHistorial(
                     statusChanges.stream()
                             .map(StatusChangeDTO::fromEntity)
+                            .collect(Collectors.toList())
+            );
+        }
+        if (comments != null && !comments.isEmpty()) {
+            dto.setComentarios(
+                    comments.stream()
+                            .map(IncidentCommentDTO::fromEntity)
                             .collect(Collectors.toList())
             );
         }
@@ -191,5 +208,13 @@ public class IncidentDTO {
 
     public void setHistorial(List<StatusChangeDTO> historial) {
         this.historial = historial != null ? historial : new ArrayList<>();
+    }
+
+    public List<IncidentCommentDTO> getComentarios() {
+        return comentarios;
+    }
+
+    public void setComentarios(List<IncidentCommentDTO> comentarios) {
+        this.comentarios = comentarios != null ? comentarios : new ArrayList<>();
     }
 }

@@ -11,7 +11,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { createIncident } from '@/services/incidentService';
+import { createIncident, IncidentPriority } from '@/services/incidentService';
 
 interface CreateIncidentFormProps {
   onCancel: () => void;
@@ -23,6 +23,7 @@ export function CreateIncidentForm({ onCancel, onCreated }: CreateIncidentFormPr
   const [titulo, setTitulo] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [categoria, setCategoria] = useState('');
+  const [prioridad, setPrioridad] = useState<IncidentPriority>('Media');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -42,6 +43,7 @@ export function CreateIncidentForm({ onCancel, onCreated }: CreateIncidentFormPr
         titulo: cleanTitle,
         descripcion: cleanDescription,
         ...(categoria.trim() ? { categoria: categoria.trim() } : {}),
+        prioridad,
       });
       await onCreated();
     } catch (submitError: unknown) {
@@ -102,6 +104,30 @@ export function CreateIncidentForm({ onCancel, onCreated }: CreateIncidentFormPr
           <ThemedText type="small" themeColor="textSecondary">
             {descripcion.length}/400
           </ThemedText>
+        </View>
+
+        <View style={styles.field}>
+          <ThemedText type="smallBold">Prioridad</ThemedText>
+          <View style={styles.priorityOptions}>
+            {(['Baja', 'Media', 'Alta'] as const).map((option) => (
+              <Pressable
+                key={option}
+                accessibilityRole="button"
+                accessibilityState={{ selected: prioridad === option }}
+                onPress={() => setPrioridad(option)}
+                style={({ pressed }) => [
+                  styles.priorityOption,
+                  prioridad === option && styles.priorityOptionSelected,
+                  pressed && styles.pressed,
+                ]}>
+                <ThemedText
+                  type="smallBold"
+                  style={prioridad === option ? styles.priorityOptionSelectedText : undefined}>
+                  {option}
+                </ThemedText>
+              </Pressable>
+            ))}
+          </View>
         </View>
 
         <View style={styles.field}>
@@ -169,6 +195,26 @@ const styles = StyleSheet.create({
   },
   field: {
     gap: Spacing.one,
+  },
+  priorityOptions: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
+  priorityOption: {
+    minHeight: 44,
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#9ca3af',
+    borderRadius: Spacing.two,
+  },
+  priorityOptionSelected: {
+    backgroundColor: '#3c87f7',
+    borderColor: '#3c87f7',
+  },
+  priorityOptionSelectedText: {
+    color: '#ffffff',
   },
   input: {
     minHeight: 48,

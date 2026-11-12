@@ -18,6 +18,7 @@ import java.util.Optional;
 
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -117,9 +118,10 @@ class IncidentControllerTest {
                                 {
                                   "titulo": "Bache en la calzada",
                                   "descripcion": "Hay un bache frente al número 12.",
-                                  "categoria": "Vía pública"
-                                }
-                                """))
+                                          "categoria": "Vía pública",
+                                          "prioridad": "Alta"
+                                        }
+                                        """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(2))
                 .andExpect(jsonPath("$.titulo").value("Bache en la calzada"))
@@ -136,6 +138,116 @@ class IncidentControllerTest {
                                 {
                                   "titulo": " ",
                                   "descripcion": "Hay un bache."
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("PATCH /api/incidents/{id}/status debe devolver el estado actualizado y su historial")
+    void testUpdateIncidentStatus() throws Exception {
+        IncidentDTO dto = new IncidentDTO();
+        dto.setId(1);
+        dto.setEstado("En revisión");
+        dto.setHistorial(List.of(new StatusChangeDTO(
+                2, 1, "Ana García", "Abierta → En revisión", "Asignada para revisión", LocalDateTime.now()
+        )));
+
+        when(incidentService.updateIncidentStatus(
+                org.mockito.ArgumentMatchers.eq(1),
+                org.mockito.ArgumentMatchers.any()
+        )).thenReturn(dto);
+
+        mockMvc.perform(patch("/api/incidents/1/status")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "estado": "En revisión",
+                                  "motivo": "Asignada para revisión"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("En revisión"))
+                .andExpect(jsonPath("$.historial[0].transicion").value("Abierta → En revisión"));
+    }
+
+    @Test
+    @DisplayName("PATCH /api/incidents/{id}/status debe rechazar un estado vacío")
+    void testUpdateIncidentStatusWithBlankStatus() throws Exception {
+        mockMvc.perform(patch("/api/incidents/1/status")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "estado": " "
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("PATCH /api/incidents/{id}/priority debe actualizar la prioridad")
+    void testUpdateIncidentPriority() throws Exception {
+        IncidentDTO dto = new IncidentDTO();
+        dto.setId(1);
+        dto.setPrioridad("Alta");
+        when(incidentService.updateIncidentPriority(
+                org.mockito.ArgumentMatchers.eq(1),
+                org.mockito.ArgumentMatchers.any()
+        )).thenReturn(dto);
+
+        mockMvc.perform(patch("/api/incidents/1/priority")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "prioridad": "Alta"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.prioridad").value("Alta"));
+    }
+
+    @Test
+    @DisplayName("PATCH /api/incidents/{id}/priority debe rechazar prioridades desconocidas")
+    void testUpdateIncidentPriorityRejectsUnknownValue() throws Exception {
+        mockMvc.perform(patch("/api/incidents/1/priority")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "prioridad": "Crítica"
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("POST /api/incidents/{id}/comments debe añadir un comentario")
+    void testCreateIncidentComment() throws Exception {
+        IncidentDTO dto = new IncidentDTO();
+        dto.setId(1);
+        when(incidentService.createIncidentComment(
+                org.mockito.ArgumentMatchers.eq(1),
+                org.mockito.ArgumentMatchers.any()
+        )).thenReturn(dto);
+
+        mockMvc.perform(post("/api/incidents/1/comments")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "contenido": "Ya se avisó al equipo."
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(1));
+    }
+
+    @Test
+    @DisplayName("POST /api/incidents/{id}/comments debe rechazar comentarios vacíos")
+    void testCreateIncidentCommentRejectsBlankContent() throws Exception {
+        mockMvc.perform(post("/api/incidents/1/comments")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "contenido": " "
                                 }
                                 """))
                 .andExpect(status().isBadRequest());

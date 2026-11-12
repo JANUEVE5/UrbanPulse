@@ -2,11 +2,16 @@ package com.example.urbanpulse.service;
 
 import com.example.urbanpulse.dto.IncidentDTO;
 import com.example.urbanpulse.dto.CreateIncidentRequest;
+import com.example.urbanpulse.dto.UpdateIncidentStatusRequest;
+import com.example.urbanpulse.dto.UpdateIncidentPriorityRequest;
+import com.example.urbanpulse.dto.CreateIncidentCommentRequest;
 import com.example.urbanpulse.entity.AppUser;
 import com.example.urbanpulse.entity.Incident;
+import com.example.urbanpulse.entity.IncidentComment;
 import com.example.urbanpulse.entity.StatusChange;
 import com.example.urbanpulse.entity.UrbanAsset;
 import com.example.urbanpulse.repository.IncidentRepository;
+import com.example.urbanpulse.repository.IncidentCommentRepository;
 import com.example.urbanpulse.repository.AppUserRepository;
 import com.example.urbanpulse.repository.StatusChangeRepository;
 import com.example.urbanpulse.service.impl.IncidentServiceImpl;
@@ -36,6 +41,9 @@ class IncidentServiceTest {
 
     @Mock
     private AppUserRepository appUserRepository;
+
+    @Mock
+    private IncidentCommentRepository incidentCommentRepository;
 
     @InjectMocks
     private IncidentServiceImpl incidentService;
@@ -125,6 +133,7 @@ class IncidentServiceTest {
         request.setTitulo("  Bache en la calzada  ");
         request.setDescripcion("  Hay un bache frente al número 12.  ");
         request.setCategoria("  Vía pública  ");
+        request.setPrioridad("Alta");
 
         when(appUserRepository.findFirstByOrderByIdAsc()).thenReturn(Optional.of(testUser));
         when(incidentRepository.save(any(Incident.class))).thenAnswer(invocation -> {
@@ -141,7 +150,7 @@ class IncidentServiceTest {
         assertEquals("Hay un bache frente al número 12.", result.getDescripcion());
         assertEquals("Vía pública", result.getCategoria());
         assertEquals("Abierta", result.getEstado());
-        assertEquals("Media", result.getPrioridad());
+        assertEquals("Alta", result.getPrioridad());
         assertEquals(1, result.getIdCreador());
         verify(incidentRepository).save(any(Incident.class));
     }
@@ -163,5 +172,138 @@ class IncidentServiceTest {
         IncidentDTO result = incidentService.createIncident(request);
 
         assertNull(result.getCategoria());
+    }
+
+    @Test
+    @DisplayName("updateIncidentStatus valida la transición y conserva el historial con actor y motivo")
+    void testUpdateIncidentStatus() {
+        UpdateIncidentStatusRequest request = new UpdateIncidentStatusRequest();
+        request.setEstado("En revisión");
+        request.setMotivo("  Asignada al equipo de revisión  ");
+        StatusChange statusChange = new StatusChange(
+                testUser, testIncident, "Abierta → En revisión", "Asignada al equipo de revisión"
+        );
+        statusChange.setId(2);
+        statusChange.setInstante(LocalDateTime.now());
+
+        when(incidentRepository.findByIdForUpdate(1)).thenReturn(Optional.of(testIncident));
+        when(appUserRepository.findFirstByOrderByIdAsc()).thenReturn(Optional.of(testUser));
+        when(incidentRepository.save(testIncident)).thenReturn(testIncident);
+        when(statusChangeRepository.findByIncidentIdOrderByInstanteAsc(1)).thenReturn(List.of(statusChange));
+
+        IncidentDTO result = incidentService.updateIncidentStatus(1, request);
+
+        assertEquals("En revisión", result.getEstado());
+        assertEquals(1, result.getHistorial().size());
+        assertEquals("Abierta → En revisión", result.getHistorial().get(0).getTransicion());
+        assertEquals("Asignada al equipo de revisión", result.getHistorial().get(0).getMotivo());
+        assertEquals(1, result.getHistorial().get(0).getActorId());
+        verify(statusChangeRepository).save(argThat(change ->
+                change.getActor() == testUser
+                        && change.getIncident() == testIncident
+                        && change.getTransicion().equals("Abierta → En revisión")
+                        && change.getMotivo().equals("Asignada al equipo de revisión")
+        ));
+    }
+
+    @Test
+    @DisplayName("updateIncidentStatus rechaza saltos de estado y no altera el historial")
+    void testUpdateIncidentStatusRejectsInvalidTransition() {
+        UpdateIncidentStatusRequest request = new UpdateIncidentStatusRequest();
+        request.setEstado("Resuelta");
+        when(incidentRepository.findByIdForUpdate(1)).thenReturn(Optional.of(testIncident));
+
+        org.springframework.web.server.ResponseStatusException exception = assertThrows(
+                org.springframework.web.server.ResponseStatusException.class,
+                () -> incidentService.updateIncidentStatus(1, request)
+        );
+
+        assertEquals(org.springframework.http.HttpStatus.CONFLICT, exception.getStatusCode());
+        assertEquals("Abierta", testIncident.getEstado());
+        verify(incidentRepository, never()).save(any(Incident.class));
+        verifyNoInteractions(statusChangeRepository);
+    }
+
+    @Test
+    @DisplayName("updateIncidentStatus rechaza estados desconocidos")
+    void testUpdateIncidentStatusRejectsUnknownStatus() {
+        UpdateIncidentStatusRequest request = new UpdateIncidentStatusRequest();
+        request.setEstado("En espera");
+        when(incidentRepository.findByIdForUpdate(1)).thenReturn(Optional.of(testIncident));
+
+        org.springframework.web.server.ResponseStatusException exception = assertThrows(
+                org.springframework.web.server.ResponseStatusException.class,
+                () -> incidentService.updateIncidentStatus(1, request)
+        );
+
+        assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        verifyNoInteractions(appUserRepository, statusChangeRepository);
+    }
+
+    @Test
+    @DisplayName("IncidentStatus permite avanzar solo por la secuencia definida")
+    void testIncidentStatusTransitionGraph() {
+        assertTrue(IncidentStatus.ABIERTA.canTransitionTo(IncidentStatus.EN_REVISION));
+        assertTrue(IncidentStatus.EN_REVISION.canTransitionTo(IncidentStatus.RESUELTA));
+        assertTrue(IncidentStatus.RESUELTA.canTransitionTo(IncidentStatus.CERRADA));
+        assertFalse(IncidentStatus.ABIERTA.canTransitionTo(IncidentStatus.RESUELTA));
+        assertFalse(IncidentStatus.CERRADA.canTransitionTo(IncidentStatus.ABIERTA));
+        assertNull(IncidentStatus.fromLabel("En espera"));
+    }
+
+    @Test
+    @DisplayName("createIncident mantiene prioridad Media si la petición no especifica una")
+    void testCreateIncidentDefaultPriority() {
+        CreateIncidentRequest request = new CreateIncidentRequest();
+        request.setTitulo("Alumbrado apagado");
+        request.setDescripcion("La farola no enciende.");
+        when(appUserRepository.findFirstByOrderByIdAsc()).thenReturn(Optional.of(testUser));
+        when(incidentRepository.save(any(Incident.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        assertEquals("Media", incidentService.createIncident(request).getPrioridad());
+    }
+
+    @Test
+    @DisplayName("updateIncidentPriority persiste y devuelve la prioridad actualizada")
+    void testUpdateIncidentPriority() {
+        UpdateIncidentPriorityRequest request = new UpdateIncidentPriorityRequest();
+        request.setPrioridad("Alta");
+        when(incidentRepository.findByIdForUpdate(1)).thenReturn(Optional.of(testIncident));
+        when(incidentRepository.findById(1)).thenReturn(Optional.of(testIncident));
+        when(statusChangeRepository.findByIncidentIdOrderByInstanteAsc(1)).thenReturn(List.of());
+        when(incidentCommentRepository.findByIncidentIdOrderByCreatedAtAsc(1)).thenReturn(List.of());
+
+        IncidentDTO result = incidentService.updateIncidentPriority(1, request);
+
+        assertEquals("Alta", result.getPrioridad());
+        verify(incidentRepository).save(testIncident);
+    }
+
+    @Test
+    @DisplayName("createIncidentComment guarda autor y contenido y devuelve los comentarios")
+    void testCreateIncidentComment() {
+        CreateIncidentCommentRequest request = new CreateIncidentCommentRequest();
+        request.setContenido("  Ya se ha avisado al equipo municipal.  ");
+        IncidentComment comment = new IncidentComment(
+                testUser, testIncident, "Ya se ha avisado al equipo municipal."
+        );
+        comment.setId(3);
+        comment.setCreatedAt(LocalDateTime.now());
+        when(incidentRepository.findByIdForUpdate(1)).thenReturn(Optional.of(testIncident));
+        when(incidentRepository.findById(1)).thenReturn(Optional.of(testIncident));
+        when(appUserRepository.findFirstByOrderByIdAsc()).thenReturn(Optional.of(testUser));
+        when(incidentCommentRepository.findByIncidentIdOrderByCreatedAtAsc(1)).thenReturn(List.of(comment));
+        when(statusChangeRepository.findByIncidentIdOrderByInstanteAsc(1)).thenReturn(List.of());
+
+        IncidentDTO result = incidentService.createIncidentComment(1, request);
+
+        assertEquals(1, result.getComentarios().size());
+        assertEquals("Ya se ha avisado al equipo municipal.", result.getComentarios().get(0).getContenido());
+        assertEquals("Ana García", result.getComentarios().get(0).getActorNombre());
+        verify(incidentCommentRepository).save(argThat(saved ->
+                saved.getActor() == testUser
+                        && saved.getIncident() == testIncident
+                        && saved.getContenido().equals("Ya se ha avisado al equipo municipal.")
+        ));
     }
 }

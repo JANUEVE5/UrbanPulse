@@ -6,6 +6,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,6 +20,10 @@ import {
   getIncidentById,
   getIncidents,
   Incident,
+  IncidentPriority,
+  addIncidentComment,
+  updateIncidentPriority,
+  updateIncidentStatus,
 } from '@/services/incidentService';
 
 export default function IncidentsScreen() {
@@ -41,6 +46,10 @@ export default function IncidentsScreen() {
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [creatingIncident, setCreatingIncident] = useState(false);
   const [creationSuccess, setCreationSuccess] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [updatingPriority, setUpdatingPriority] = useState(false);
+  const [postingComment, setPostingComment] = useState(false);
 
   const fetchIncidents = async () => {
     setLoadingList(true);
@@ -58,6 +67,7 @@ export default function IncidentsScreen() {
   const fetchDetail = async (id: number) => {
     setLoadingDetail(true);
     setErrorDetail(null);
+    setStatusError(null);
     try {
       const data = await getIncidentById(id);
       setIncidentDetail(data);
@@ -96,6 +106,47 @@ export default function IncidentsScreen() {
     await fetchIncidents();
   };
 
+  const handleStatusTransition = async (id: number, estado: string, motivo: string) => {
+    setUpdatingStatus(true);
+    setStatusError(null);
+    try {
+      setIncidentDetail(await updateIncidentStatus(id, {
+        estado,
+        ...(motivo.trim() ? { motivo: motivo.trim() } : {}),
+      }));
+    } catch (err: unknown) {
+      setStatusError(err instanceof Error ? err.message : 'No se pudo actualizar el estado.');
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  const handlePriorityChange = async (id: number, prioridad: IncidentPriority) => {
+    setUpdatingPriority(true);
+    setStatusError(null);
+    try {
+      setIncidentDetail(await updateIncidentPriority(id, { prioridad }));
+    } catch (err: unknown) {
+      setStatusError(err instanceof Error ? err.message : 'No se pudo actualizar la prioridad.');
+    } finally {
+      setUpdatingPriority(false);
+    }
+  };
+
+  const handleAddComment = async (id: number, contenido: string): Promise<boolean> => {
+    setPostingComment(true);
+    setStatusError(null);
+    try {
+      setIncidentDetail(await addIncidentComment(id, contenido));
+      return true;
+    } catch (err: unknown) {
+      setStatusError(err instanceof Error ? err.message : 'No se pudo añadir el comentario.');
+      return false;
+    } finally {
+      setPostingComment(false);
+    }
+  };
+
   const contentPlatformStyle = Platform.select({
     android: {
       paddingTop: insets.top + Spacing.two,
@@ -130,6 +181,13 @@ export default function IncidentsScreen() {
             isDark={isDark}
             onBack={handleBackToList}
             onRetry={() => fetchDetail(selectedId)}
+            onTransition={(estado, motivo) => handleStatusTransition(selectedId, estado, motivo)}
+            onPriorityChange={(prioridad) => handlePriorityChange(selectedId, prioridad)}
+            onAddComment={(contenido) => handleAddComment(selectedId, contenido)}
+            updatingStatus={updatingStatus}
+            updatingPriority={updatingPriority}
+            postingComment={postingComment}
+            statusError={statusError}
           />
         ) : creatingIncident ? (
           <CreateIncidentForm
@@ -363,6 +421,13 @@ interface DetailViewProps {
   isDark: boolean;
   onBack: () => void;
   onRetry: () => void;
+  onTransition: (estado: string, motivo: string) => void;
+  onPriorityChange: (prioridad: IncidentPriority) => void;
+  onAddComment: (contenido: string) => Promise<boolean>;
+  updatingStatus: boolean;
+  updatingPriority: boolean;
+  postingComment: boolean;
+  statusError: string | null;
 }
 
 function IncidentDetailView({
@@ -373,9 +438,20 @@ function IncidentDetailView({
   isDark,
   onBack,
   onRetry,
+  onTransition,
+  onPriorityChange,
+  onAddComment,
+  updatingStatus,
+  updatingPriority,
+  postingComment,
+  statusError,
 }: DetailViewProps) {
+  const theme = useTheme();
+  const [motivo, setMotivo] = useState('');
+  const [commentText, setCommentText] = useState('');
   const statusColors = incident ? getStatusBadgeColor(incident.estado, isDark) : null;
   const priorityColors = incident ? getPriorityBadgeColor(incident.prioridad, isDark) : null;
+  const nextStatuses = incident ? getNextIncidentStatuses(incident.estado) : [];
 
   return (
     <View style={styles.wrapper}>
@@ -508,6 +584,28 @@ function IncidentDetailView({
                   </ThemedText>
                 </View>
               )}
+              <View style={styles.priorityOptions}>
+                {(['Baja', 'Media', 'Alta'] as const).map((priority) => (
+                  <Pressable
+                    key={priority}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: incident.prioridad === priority }}
+                    disabled={updatingPriority}
+                    onPress={() => onPriorityChange(priority)}
+                    style={({ pressed }) => [
+                      styles.priorityOption,
+                      incident.prioridad === priority && styles.priorityOptionSelected,
+                      pressed && styles.pressed,
+                      updatingPriority && styles.disabledButton,
+                    ]}>
+                    <ThemedText
+                      type="smallBold"
+                      style={incident.prioridad === priority ? styles.priorityOptionSelectedText : undefined}>
+                      {priority}
+                    </ThemedText>
+                  </Pressable>
+                ))}
+              </View>
             </View>
           </ThemedView>
 
@@ -570,11 +668,57 @@ function IncidentDetailView({
               🕒 SEGUIMIENTO E HISTORIAL DE AUDITORÍA
             </ThemedText>
 
-            <View style={styles.historyNotice}>
-              <ThemedText type="small" style={styles.historyNoticeText}>
-                ℹ️ El seguimiento de estados y el historial de cambios estarán disponibles próximamente.
+            {nextStatuses.length > 0 ? (
+              <View style={styles.transitionControls}>
+                <ThemedText type="smallBold">Cambiar estado</ThemedText>
+                <TextInput
+                  accessibilityLabel="Motivo del cambio de estado"
+                  value={motivo}
+                  onChangeText={setMotivo}
+                  placeholder="Motivo (opcional)"
+                  placeholderTextColor={theme.textSecondary}
+                  maxLength={400}
+                  style={[
+                    styles.transitionInput,
+                    { color: theme.text, borderColor: theme.backgroundSelected },
+                  ]}
+                />
+                <View style={styles.transitionActions}>
+                  {nextStatuses.map((nextStatus) => (
+                    <Pressable
+                      key={nextStatus}
+                      accessibilityRole="button"
+                      disabled={updatingStatus}
+                      onPress={() => onTransition(nextStatus, motivo)}
+                      style={({ pressed }) => [
+                        styles.transitionButton,
+                        pressed && styles.pressed,
+                        updatingStatus && styles.disabledButton,
+                      ]}>
+                      {updatingStatus ? (
+                        <ActivityIndicator color="#ffffff" />
+                      ) : (
+                        <ThemedText type="smallBold" style={styles.transitionButtonText}>
+                          Marcar como {nextStatus}
+                        </ThemedText>
+                      )}
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            ) : (
+              <ThemedText type="small" themeColor="textSecondary">
+                La incidencia está en su estado final.
               </ThemedText>
-            </View>
+            )}
+
+            {statusError ? (
+              <ThemedView style={styles.statusErrorBox}>
+                <ThemedText type="small" style={styles.statusErrorText}>
+                  {statusError}
+                </ThemedText>
+              </ThemedView>
+            ) : null}
 
             {incident.historial && incident.historial.length > 0 ? (
               <View style={styles.timelineList}>
@@ -606,6 +750,69 @@ function IncidentDetailView({
                   Sin transiciones de estado registradas aún en el sistema.
                 </ThemedText>
               </View>
+            )}
+          </ThemedView>
+
+          <ThemedView type="backgroundElement" style={styles.detailCard}>
+            <ThemedText type="smallBold" style={styles.cardSectionTitle}>
+              💬 COMENTARIOS
+            </ThemedText>
+            <TextInput
+              accessibilityLabel="Nuevo comentario"
+              value={commentText}
+              onChangeText={setCommentText}
+              placeholder="Escribe un comentario..."
+              placeholderTextColor={theme.textSecondary}
+              maxLength={400}
+              multiline
+              textAlignVertical="top"
+              style={[
+                styles.transitionInput,
+                styles.commentInput,
+                { color: theme.text, borderColor: theme.backgroundSelected },
+              ]}
+            />
+            <View style={styles.commentSubmitRow}>
+              <ThemedText type="small" themeColor="textSecondary">
+                {commentText.length}/400
+              </ThemedText>
+              <Pressable
+                accessibilityRole="button"
+                disabled={postingComment || !commentText.trim()}
+                onPress={() => {
+                  void onAddComment(commentText).then((added) => {
+                    if (added) setCommentText('');
+                  });
+                }}
+                style={({ pressed }) => [
+                  styles.transitionButton,
+                  pressed && styles.pressed,
+                  (postingComment || !commentText.trim()) && styles.disabledButton,
+                ]}>
+                {postingComment ? (
+                  <ActivityIndicator color="#ffffff" />
+                ) : (
+                  <ThemedText type="smallBold" style={styles.transitionButtonText}>
+                    Añadir comentario
+                  </ThemedText>
+                )}
+              </Pressable>
+            </View>
+            {incident.comentarios && incident.comentarios.length > 0 ? (
+              <View style={styles.commentsList}>
+                {incident.comentarios.map((comment) => (
+                  <View key={comment.id} style={styles.commentItem}>
+                    <ThemedText type="small">{comment.contenido}</ThemedText>
+                    <ThemedText type="code" style={styles.commentMetadata}>
+                      Por: {comment.actorNombre || `Usuario #${comment.actorId}`} • {formatDate(comment.createdAt)}
+                    </ThemedText>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <ThemedText type="small" themeColor="textSecondary">
+                Todavía no hay comentarios en esta incidencia.
+              </ThemedText>
             )}
           </ThemedView>
         </View>
@@ -646,6 +853,19 @@ function getStatusBadgeColor(estado: string, isDark: boolean) {
     return { bg: isDark ? '#06301d' : '#dcfce7', text: '#15803d', border: '#22c55e' };
   }
   return { bg: isDark ? '#262626' : '#f3f4f6', text: '#4b5563', border: '#9ca3af' };
+}
+
+function getNextIncidentStatuses(estado: string): string[] {
+  switch (estado) {
+    case 'Abierta':
+      return ['En revisión'];
+    case 'En revisión':
+      return ['Resuelta'];
+    case 'Resuelta':
+      return ['Cerrada'];
+    default:
+      return [];
+  }
 }
 
 function getPriorityBadgeColor(prioridad: string, isDark: boolean) {
@@ -854,15 +1074,87 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
   },
-  historyNotice: {
-    backgroundColor: 'rgba(60, 135, 247, 0.1)',
-    borderColor: '#3c87f7',
+  transitionControls: {
+    gap: Spacing.two,
+  },
+  transitionInput: {
+    minHeight: 44,
     borderWidth: 1,
     borderRadius: Spacing.two,
-    padding: Spacing.three,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    fontSize: 15,
+    backgroundColor: 'transparent',
   },
-  historyNoticeText: {
-    lineHeight: 18,
+  commentInput: {
+    minHeight: 88,
+  },
+  commentSubmitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
+  commentsList: {
+    gap: Spacing.two,
+  },
+  commentItem: {
+    padding: Spacing.three,
+    gap: Spacing.one,
+    borderRadius: Spacing.two,
+    backgroundColor: 'rgba(60, 135, 247, 0.08)',
+  },
+  commentMetadata: {
+    color: '#888',
+  },
+  transitionActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  transitionButton: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
+    borderRadius: Spacing.two,
+    backgroundColor: '#3c87f7',
+  },
+  transitionButtonText: {
+    color: '#ffffff',
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
+  priorityOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.one,
+    marginTop: Spacing.one,
+  },
+  priorityOption: {
+    minHeight: 38,
+    minWidth: 76,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.two,
+    borderWidth: 1,
+    borderColor: '#9ca3af',
+    borderRadius: Spacing.two,
+  },
+  priorityOptionSelected: {
+    backgroundColor: '#3c87f7',
+    borderColor: '#3c87f7',
+  },
+  priorityOptionSelectedText: {
+    color: '#ffffff',
+  },
+  statusErrorBox: {
+    padding: Spacing.two,
+    borderRadius: Spacing.two,
+    backgroundColor: '#fee2e2',
+  },
+  statusErrorText: {
+    color: '#b91c1c',
   },
   timelineList: {
     marginTop: Spacing.two,

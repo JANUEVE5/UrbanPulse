@@ -9,6 +9,14 @@ export interface StatusChange {
   instante: string;
 }
 
+export interface IncidentComment {
+  id: number;
+  actorId: number;
+  actorNombre?: string | null;
+  contenido: string;
+  createdAt: string;
+}
+
 export interface Incident {
   id: number;
   reporteCentral: string;
@@ -25,7 +33,10 @@ export interface Incident {
   correoCreador?: string | null;
   createdAt: string;
   historial?: StatusChange[];
+  comentarios?: IncidentComment[];
 }
+
+export type IncidentPriority = 'Baja' | 'Media' | 'Alta';
 
 const DEFAULT_API_URL = Platform.select({
   android: 'http://10.0.2.2:8080/api',
@@ -38,6 +49,16 @@ export interface CreateIncidentInput {
   titulo: string;
   descripcion: string;
   categoria?: string;
+  prioridad?: IncidentPriority;
+}
+
+export interface UpdateIncidentPriorityInput {
+  prioridad: IncidentPriority;
+}
+
+export interface UpdateIncidentStatusInput {
+  estado: string;
+  motivo?: string;
 }
 
 /**
@@ -127,6 +148,102 @@ export async function createIncident(input: CreateIncidentInput): Promise<Incide
     return await response.json();
   } catch (error: unknown) {
     console.error('Error creating incident at:', url, error);
+    if (error instanceof TypeError) {
+      throw new Error(
+        `No se pudo conectar con el servidor en ${url}. Verifica que el backend Spring Boot esté reiniciado y en ejecución.`
+      );
+    }
+    throw error;
+  }
+}
+
+/**
+ * Actualiza el estado de una incidencia y devuelve su historial actualizado.
+ */
+export async function updateIncidentStatus(
+  id: number,
+  input: UpdateIncidentStatusInput
+): Promise<Incident> {
+  const url = `${API_BASE_URL}/incidents/${id}/status`;
+  try {
+    const response = await fetch(url, {
+      method: 'PATCH',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(input),
+    });
+
+    if (!response.ok) {
+      const responseBody = await response.text();
+      throw new Error(responseBody || `Error ${response.status}: ${response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error: unknown) {
+    console.error(`Error updating status for incident #${id} at:`, url, error);
+    if (error instanceof TypeError) {
+      throw new Error(
+        `No se pudo conectar con el servidor en ${url}. Verifica que el backend Spring Boot esté reiniciado y en ejecución.`
+      );
+    }
+    throw error;
+  }
+}
+
+export async function updateIncidentPriority(
+  id: number,
+  input: UpdateIncidentPriorityInput
+): Promise<Incident> {
+  const url = `${API_BASE_URL}/incidents/${id}/priority`;
+  try {
+    const response = await fetch(url, {
+      method: 'PATCH',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(input),
+    });
+
+    if (!response.ok) {
+      const responseBody = await response.text();
+      throw new Error(responseBody || `Error ${response.status}: ${response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error: unknown) {
+    console.error(`Error updating priority for incident #${id} at:`, url, error);
+    if (error instanceof TypeError) {
+      throw new Error(
+        `No se pudo conectar con el servidor en ${url}. Verifica que el backend Spring Boot esté reiniciado y en ejecución.`
+      );
+    }
+    throw error;
+  }
+}
+
+export async function addIncidentComment(id: number, contenido: string): Promise<Incident> {
+  const url = `${API_BASE_URL}/incidents/${id}/comments`;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ contenido }),
+    });
+
+    if (!response.ok) {
+      const responseBody = await response.text();
+      throw new Error(responseBody || `Error ${response.status}: ${response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error: unknown) {
+    console.error(`Error adding comment to incident #${id} at:`, url, error);
     if (error instanceof TypeError) {
       throw new Error(
         `No se pudo conectar con el servidor en ${url}. Verifica que el backend Spring Boot esté reiniciado y en ejecución.`

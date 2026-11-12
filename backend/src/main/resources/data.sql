@@ -16,7 +16,7 @@ INSERT INTO "Incident" (
              'El semáforo no funciona.',
              1,
              'Plaza Mayor',
-             'Abierta',
+             'En revisión',
              'Alta',
              1
          );
