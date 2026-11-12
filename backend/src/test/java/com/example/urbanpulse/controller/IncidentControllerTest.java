@@ -391,8 +391,4 @@ class IncidentControllerTest {
         return jwt().jwt(token -> token.subject("2").claim(SecurityConfig.ROLE_CLAIM, "OPERATOR"))
                 .authorities(new SimpleGrantedAuthority("ROLE_OPERATOR"));
     }
-
-    private static org.springframework.test.web.servlet.request.RequestPostProcessor operatorToken() {
-        return jwt().jwt(token -> token.subject("2").claim(SecurityConfig.ROLE_CLAIM, "OPERATOR"));
-    }
 }
