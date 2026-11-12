@@ -94,7 +94,7 @@ al final del sprint.
 |---|---|---|
 | RF03 — Registrar incidencia | Crear una incidencia con título, descripción y categoría opcional. | [#13](https://github.com/JANUEVE5/UrbanPulse/issues/13) |
 | RF04 — Localización | Guardar latitud y longitud. Dirección normalizada y precisión, en otro sprint. | [#14](https://github.com/JANUEVE5/UrbanPulse/issues/14) |
-| RF12 — Ciclo de vida | Asignar el estado inicial `REPORTED` y guardar la fecha de creación. Sin todas las transiciones. | [#22](https://github.com/JANUEVE5/UrbanPulse/issues/22) |
+| RF12 — Ciclo de vida | Crear incidencias como `Abierta`, validar transiciones, permitir rechazo y reapertura con motivo y mantener el historial de auditoría. | [#22](https://github.com/JANUEVE5/UrbanPulse/issues/22) |
 | RF06 — Consulta | Obtener el detalle de una incidencia por su identificador. Seguimiento completo e historial visible, más adelante. | [#16](https://github.com/JANUEVE5/UrbanPulse/issues/16) |
 
 **Reparto de tareas:** una persona se ocupa del modelo y la persistencia; otra, del endpoint de creación;

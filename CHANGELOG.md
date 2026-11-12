@@ -11,8 +11,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 - RF10/RF12: selección de prioridad (`Baja`, `Media` o `Alta`) al registrar una incidencia y controles de
   cambio de prioridad y estado en el detalle según el rol del usuario.
-- RF12: transiciones secuenciales `Abierta → En revisión → Resuelta → Cerrada`, con motivo opcional e
-  historial cronológico de actor, transición y fecha.
+- RF12: transiciones de estado con rechazo desde `Abierta` o `En revisión`, reapertura desde `Resuelta` o
+  `Cerrada`, motivo obligatorio para estas acciones e historial cronológico de actor, transición y fecha.
 - RF13: comentarios de hasta 400 caracteres en incidencias, persistidos con autor y fecha.
 - RF01/RF02 (frontend): pantallas de iniciar sesión y crear cuenta; la sesión se guarda (almacén cifrado en
   móvil, `localStorage` en web) y se restaura al abrir la app. Crear una incidencia sin sesión lleva al login y

@@ -4,7 +4,9 @@ public enum IncidentStatus {
     ABIERTA("Abierta"),
     EN_REVISION("En revisión"),
     RESUELTA("Resuelta"),
-    CERRADA("Cerrada");
+    CERRADA("Cerrada"),
+    RECHAZADA("Rechazada"),
+    REABIERTA("Reabierta");
 
     private final String label;
 
@@ -18,10 +20,11 @@ public enum IncidentStatus {
 
     public boolean canTransitionTo(IncidentStatus target) {
         return switch (this) {
-            case ABIERTA -> target == EN_REVISION;
-            case EN_REVISION -> target == RESUELTA;
-            case RESUELTA -> target == CERRADA;
-            case CERRADA -> false;
+            case ABIERTA -> target == EN_REVISION || target == RECHAZADA;
+            case EN_REVISION -> target == RESUELTA || target == RECHAZADA;
+            case RESUELTA, CERRADA -> target == REABIERTA || (this == RESUELTA && target == CERRADA);
+            case REABIERTA -> target == EN_REVISION;
+            case RECHAZADA -> false;
         };
     }
 
@@ -32,5 +35,9 @@ public enum IncidentStatus {
             }
         }
         return null;
+    }
+
+    public boolean requiresReason() {
+        return this == RECHAZADA || this == REABIERTA;
     }
 }

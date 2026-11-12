@@ -108,7 +108,7 @@ public class IncidentServiceImpl implements IncidentService {
         if (targetStatus == null) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "Estado no válido. Los estados permitidos son: Abierta, En revisión, Resuelta y Cerrada."
+                    "Estado no válido. Los estados permitidos son: Abierta, En revisión, Resuelta, Cerrada, Rechazada y Reabierta."
             );
         }
         if (currentStatus == null || !currentStatus.canTransitionTo(targetStatus)) {
@@ -119,15 +119,21 @@ public class IncidentServiceImpl implements IncidentService {
             );
         }
 
+        String motivo = request.getMotivo() == null || request.getMotivo().isBlank()
+                ? null
+                : request.getMotivo().trim();
+        if (targetStatus.requiresReason() && motivo == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Debe indicar un motivo para rechazar o reabrir una incidencia."
+            );
+        }
+
         AppUser actor = appUserRepository.findById(actorId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.UNAUTHORIZED,
                         "El usuario autenticado ya no existe."
                 ));
-
-        String motivo = request.getMotivo() == null || request.getMotivo().isBlank()
-                ? null
-                : request.getMotivo().trim();
 
         incident.setEstado(targetStatus.getLabel());
         incidentRepository.save(incident);

@@ -866,10 +866,10 @@ function IncidentDetailView({
               <View style={styles.transitionControls}>
                 <ThemedText type="smallBold">Cambiar estado</ThemedText>
                 <TextInput
-                  accessibilityLabel="Motivo del cambio de estado"
+                  accessibilityLabel="Motivo del cambio de estado; obligatorio para rechazar o reabrir"
                   value={motivo}
                   onChangeText={setMotivo}
-                  placeholder="Motivo (opcional)"
+                  placeholder="Motivo (obligatorio para rechazar o reabrir)"
                   placeholderTextColor={theme.textSecondary}
                   maxLength={400}
                   style={[
@@ -878,26 +878,35 @@ function IncidentDetailView({
                   ]}
                 />
                 <View style={styles.transitionActions}>
-                  {nextStatuses.map((nextStatus) => (
+                  {nextStatuses.map((nextStatus) => {
+                    const reasonRequired = ['Rechazada', 'Reabierta'].includes(nextStatus);
+                    const canSubmit = !reasonRequired || motivo.trim().length > 0;
+                    const actionLabel = nextStatus === 'Rechazada'
+                      ? 'Rechazar incidencia'
+                      : nextStatus === 'Reabierta'
+                        ? 'Reabrir incidencia'
+                        : `Marcar como ${nextStatus}`;
+                    return (
                     <Pressable
                       key={nextStatus}
                       accessibilityRole="button"
-                      disabled={updatingStatus}
+                      disabled={updatingStatus || !canSubmit}
                       onPress={() => onTransition(nextStatus, motivo)}
                       style={({ pressed }) => [
                         styles.transitionButton,
                         pressed && styles.pressed,
-                        updatingStatus && styles.disabledButton,
+                        (updatingStatus || !canSubmit) && styles.disabledButton,
                       ]}>
                       {updatingStatus ? (
                         <ActivityIndicator color="#ffffff" />
                       ) : (
                         <ThemedText type="smallBold" style={styles.transitionButtonText}>
-                          Marcar como {nextStatus}
+                          {actionLabel}
                         </ThemedText>
                       )}
                     </Pressable>
-                  ))}
+                    );
+                  })}
                 </View>
               </View>
             ) : canManageStatus ? (
@@ -1042,6 +1051,12 @@ function formatDate(dateStr?: string | null): string {
 
 function getStatusBadgeColor(status: string) {
   const norm = status?.toLowerCase() || '';
+  if (norm.includes('rechaz')) {
+    return { bg: '#fee2e2', text: '#b91c1c', border: '#f87171' };
+  }
+  if (norm.includes('reabiert')) {
+    return { bg: '#fef3c7', text: '#b45309', border: '#fbbf24' };
+  }
   if (norm.includes('resuelt') || norm.includes('cerrad')) {
     return { bg: '#dcfce7', text: '#15803d', border: '#4ade80' };
   }
@@ -1056,9 +1071,13 @@ function getNextIncidentStatuses(estado: string): string[] {
     case 'Abierta':
       return ['En revisión'];
     case 'En revisión':
-      return ['Resuelta'];
+      return ['Resuelta', 'Rechazada'];
     case 'Resuelta':
-      return ['Cerrada'];
+      return ['Cerrada', 'Reabierta'];
+    case 'Cerrada':
+      return ['Reabierta'];
+    case 'Reabierta':
+      return ['En revisión'];
     default:
       return [];
   }

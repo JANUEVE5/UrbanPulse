@@ -84,11 +84,18 @@ municipal.
 Los estados permitidos y sus transiciones son:
 
 ```text
-Abierta → En revisión → Resuelta → Cerrada
+Abierta ────────→ En revisión → Resuelta → Cerrada
+   └────────────→ Rechazada (terminal)
+                 En revisión ─→ Rechazada (terminal)
+Resuelta/Cerrada → Reabierta → En revisión
 ```
 
-Solo se permite avanzar al siguiente estado; `Cerrada` es terminal. Un estado desconocido
-se rechaza con `400 Bad Request` y una transición no permitida con `409 Conflict`.
+`Abierta` puede avanzar a `En revisión` o ser rechazada; `En revisión` también puede
+finalizar como `Rechazada`. `Resuelta` puede
+cerrarse o reabrirse; una incidencia `Cerrada` también puede reabrirse. Una incidencia
+`Reabierta` vuelve a `En revisión`. `Rechazada` es terminal. Rechazar o reabrir requiere
+un motivo no vacío, que se conserva en el historial. Un estado desconocido se rechaza con
+`400 Bad Request` y una transición no permitida con `409 Conflict`.
 Solo los roles `OPERATOR`, `TECHNICIAN` y `ADMIN` pueden cambiar el estado; el resto recibe
 `403 Forbidden`.
 Cada transición válida actualiza la incidencia y agrega, en la misma transacción, una
@@ -101,6 +108,15 @@ opcional y la fecha. El detalle de la incidencia devuelve ese historial en orden
 {
   "estado": "En revisión",
   "motivo": "Asignada al equipo de revisión"
+}
+```
+
+Para rechazar o reabrir, el `motivo` es obligatorio:
+
+```json
+{
+  "estado": "Rechazada",
+  "motivo": "La incidencia está fuera del ámbito municipal."
 }
 ```
 

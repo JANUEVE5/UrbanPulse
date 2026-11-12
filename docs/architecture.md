@@ -265,21 +265,29 @@ El esquema físico está en [`backend/src/main/resources/schema.sql`](../backend
 stateDiagram-v2
     [*] --> Abierta
     Abierta --> En_revision
+    Abierta --> Rechazada
     En_revision --> Resuelta
+    En_revision --> Rechazada
     Resuelta --> Cerrada
+    Resuelta --> Reabierta
+    Cerrada --> Reabierta
+    Reabierta --> En_revision
+    Rechazada --> [*]
     Cerrada --> [*]
 ```
 
 | Estado | Siguiente estado permitido |
 |---|---|
-| `Abierta` | `En revisión` |
-| `En revisión` | `Resuelta` |
-| `Resuelta` | `Cerrada` |
-| `Cerrada` | Ninguno (estado terminal) |
+| `Abierta` | `En revisión`, `Rechazada` |
+| `En revisión` | `Resuelta`, `Rechazada` |
+| `Resuelta` | `Cerrada`, `Reabierta` |
+| `Cerrada` | `Reabierta` |
+| `Reabierta` | `En revisión` |
+| `Rechazada` | Ninguno (estado terminal) |
 
 Cada transición se registra en `StatusChange` con el actor autenticado, instante, transición y motivo; el
 detalle devuelve los registros en orden cronológico (RF12). La implementación y sus permisos se documentan
-en el [ADR-008](adr/008-ciclo-vida-maquina-estados.md).
+en el [ADR-008](adr/008-ciclo-vida-maquina-estados.md). Rechazar o reabrir requiere un motivo no vacío.
 
 ---
 

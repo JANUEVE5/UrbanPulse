@@ -251,11 +251,114 @@ class IncidentServiceTest {
     @DisplayName("IncidentStatus permite avanzar solo por la secuencia definida")
     void testIncidentStatusTransitionGraph() {
         assertTrue(IncidentStatus.ABIERTA.canTransitionTo(IncidentStatus.EN_REVISION));
+        assertTrue(IncidentStatus.ABIERTA.canTransitionTo(IncidentStatus.RECHAZADA));
         assertTrue(IncidentStatus.EN_REVISION.canTransitionTo(IncidentStatus.RESUELTA));
+        assertTrue(IncidentStatus.EN_REVISION.canTransitionTo(IncidentStatus.RECHAZADA));
         assertTrue(IncidentStatus.RESUELTA.canTransitionTo(IncidentStatus.CERRADA));
+        assertTrue(IncidentStatus.RESUELTA.canTransitionTo(IncidentStatus.REABIERTA));
+        assertTrue(IncidentStatus.CERRADA.canTransitionTo(IncidentStatus.REABIERTA));
+        assertTrue(IncidentStatus.REABIERTA.canTransitionTo(IncidentStatus.EN_REVISION));
         assertFalse(IncidentStatus.ABIERTA.canTransitionTo(IncidentStatus.RESUELTA));
         assertFalse(IncidentStatus.CERRADA.canTransitionTo(IncidentStatus.ABIERTA));
+        assertFalse(IncidentStatus.RECHAZADA.canTransitionTo(IncidentStatus.REABIERTA));
+        assertTrue(IncidentStatus.RECHAZADA.requiresReason());
+        assertTrue(IncidentStatus.REABIERTA.requiresReason());
         assertNull(IncidentStatus.fromLabel("En espera"));
+    }
+
+    @Test
+    @DisplayName("updateIncidentStatus exige motivo para rechazar")
+    void testRejectIncidentRequiresReason() {
+        UpdateIncidentStatusRequest request = new UpdateIncidentStatusRequest();
+        request.setEstado("Rechazada");
+        when(incidentRepository.findByIdForUpdate(1)).thenReturn(Optional.of(testIncident));
+        testIncident.setEstado("En revisión");
+
+        org.springframework.web.server.ResponseStatusException exception = assertThrows(
+                org.springframework.web.server.ResponseStatusException.class,
+                () -> incidentService.updateIncidentStatus(1, request, 1)
+        );
+
+        assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        assertEquals("En revisión", testIncident.getEstado());
+        verify(incidentRepository, never()).save(any(Incident.class));
+        verifyNoInteractions(appUserRepository, statusChangeRepository);
+    }
+
+    @Test
+    @DisplayName("updateIncidentStatus exige motivo para reabrir")
+    void testReopenIncidentRequiresReason() {
+        UpdateIncidentStatusRequest request = new UpdateIncidentStatusRequest();
+        request.setEstado("Reabierta");
+        testIncident.setEstado("Cerrada");
+        when(incidentRepository.findByIdForUpdate(1)).thenReturn(Optional.of(testIncident));
+
+        org.springframework.web.server.ResponseStatusException exception = assertThrows(
+                org.springframework.web.server.ResponseStatusException.class,
+                () -> incidentService.updateIncidentStatus(1, request, 1)
+        );
+
+        assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        assertEquals("Cerrada", testIncident.getEstado());
+        verify(incidentRepository, never()).save(any(Incident.class));
+        verifyNoInteractions(appUserRepository, statusChangeRepository);
+    }
+
+    @Test
+    @DisplayName("updateIncidentStatus registra el rechazo con motivo y actor")
+    void testRejectIncidentWithReason() {
+        UpdateIncidentStatusRequest request = new UpdateIncidentStatusRequest();
+        request.setEstado("Rechazada");
+        request.setMotivo("  Fuera del ámbito municipal  ");
+        testIncident.setEstado("En revisión");
+        StatusChange statusChange = new StatusChange(
+                testUser, testIncident, "En revisión → Rechazada", "Fuera del ámbito municipal"
+        );
+        statusChange.setId(5);
+        statusChange.setInstante(LocalDateTime.now());
+        when(incidentRepository.findByIdForUpdate(1)).thenReturn(Optional.of(testIncident));
+        when(appUserRepository.findById(1)).thenReturn(Optional.of(testUser));
+        when(incidentRepository.save(testIncident)).thenReturn(testIncident);
+        when(statusChangeRepository.findByIncidentIdOrderByInstanteAsc(1)).thenReturn(List.of(statusChange));
+
+        IncidentDTO result = incidentService.updateIncidentStatus(1, request, 1);
+
+        assertEquals("Rechazada", result.getEstado());
+        assertEquals("En revisión → Rechazada", result.getHistorial().get(0).getTransicion());
+        assertEquals("Fuera del ámbito municipal", result.getHistorial().get(0).getMotivo());
+        verify(statusChangeRepository).save(argThat(change ->
+                change.getActor() == testUser
+                        && change.getTransicion().equals("En revisión → Rechazada")
+                        && change.getMotivo().equals("Fuera del ámbito municipal")
+        ));
+    }
+
+    @Test
+    @DisplayName("updateIncidentStatus reabre una incidencia cerrada y registra el motivo")
+    void testReopenClosedIncidentWithReason() {
+        UpdateIncidentStatusRequest request = new UpdateIncidentStatusRequest();
+        request.setEstado("Reabierta");
+        request.setMotivo("La reparación no resolvió el problema.");
+        testIncident.setEstado("Cerrada");
+        StatusChange statusChange = new StatusChange(
+                testUser, testIncident, "Cerrada → Reabierta", "La reparación no resolvió el problema."
+        );
+        statusChange.setId(6);
+        statusChange.setInstante(LocalDateTime.now());
+        when(incidentRepository.findByIdForUpdate(1)).thenReturn(Optional.of(testIncident));
+        when(appUserRepository.findById(1)).thenReturn(Optional.of(testUser));
+        when(incidentRepository.save(testIncident)).thenReturn(testIncident);
+        when(statusChangeRepository.findByIncidentIdOrderByInstanteAsc(1)).thenReturn(List.of(statusChange));
+
+        IncidentDTO result = incidentService.updateIncidentStatus(1, request, 1);
+
+        assertEquals("Reabierta", result.getEstado());
+        assertEquals("Cerrada → Reabierta", result.getHistorial().get(0).getTransicion());
+        verify(statusChangeRepository).save(argThat(change ->
+                change.getActor() == testUser
+                        && change.getTransicion().equals("Cerrada → Reabierta")
+                        && change.getMotivo().equals("La reparación no resolvió el problema.")
+        ));
     }
 
     @Test

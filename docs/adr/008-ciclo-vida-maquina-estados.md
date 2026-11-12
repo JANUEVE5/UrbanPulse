@@ -19,16 +19,19 @@ de estado y conservar quién hizo cada transición, cuándo y por qué.
 ## Decisión
 
 Centralizar la máquina de estados en `IncidentStatus` y validar las transiciones en `IncidentServiceImpl`.
-Los estados permitidos son `Abierta`, `En revisión`, `Resuelta` y `Cerrada`; solo se permite avanzar al
-siguiente y `Cerrada` es terminal. El endpoint de cambio de estado exige `OPERATOR`, `TECHNICIAN` o `ADMIN`.
-Cada transición válida actualiza la incidencia e inserta, en la misma transacción, un `StatusChange` con el
-usuario autenticado, la transición, el motivo opcional y la fecha. El detalle devuelve el historial en orden
-cronológico.
+El flujo admite `Abierta`, `En revisión`, `Resuelta`, `Cerrada`, `Rechazada` y `Reabierta`. Desde `Abierta` se
+puede pasar a `En revisión` o rechazar; desde `En revisión` se puede resolver o rechazar; `Resuelta` se puede
+cerrar o reabrir; `Cerrada` se puede reabrir y `Reabierta` vuelve a `En revisión`. `Rechazada` es terminal.
+Rechazo y reapertura requieren un motivo no vacío. El endpoint de cambio de estado exige `OPERATOR`,
+`TECHNICIAN` o `ADMIN`. Cada transición válida actualiza la incidencia e inserta, en la misma transacción, un
+`StatusChange` con el usuario autenticado, la transición, el motivo y la fecha. El detalle devuelve el
+historial en orden cronológico.
 
 ## Consecuencias
 
 + Las transiciones inválidas se rechazan en un único punto y se pueden probar de forma exhaustiva.
 + Los saltos inválidos se rechazan con `409 Conflict`; los estados desconocidos, con `400 Bad Request`.
++ Rechazos y reaperturas tienen motivo obligatorio para conservar la justificación de la decisión.
 + El control de rol se aplica en el backend y no depende de ocultar controles en la interfaz.
 + El historial de transiciones no se sobrescribe y se conserva en `StatusChange`.
 + Es más sencillo que introducir una librería de máquinas de estados (pauta de la solución más sencilla).
