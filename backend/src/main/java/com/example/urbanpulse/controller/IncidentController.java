@@ -7,6 +7,7 @@ import com.example.urbanpulse.entity.Rol;
 import com.example.urbanpulse.dto.CreateIncidentCommentRequest;
 import com.example.urbanpulse.dto.UpdateIncidentStatusRequest;
 import com.example.urbanpulse.dto.UpdateIncidentPriorityRequest;
+import com.example.urbanpulse.dto.UpdateIncidentUrbanAssetRequest;
 import jakarta.validation.Valid;
 import com.example.urbanpulse.service.IncidentService;
 import org.springframework.http.HttpStatus;
@@ -74,6 +75,15 @@ public class IncidentController {
             @Valid @RequestBody UpdateIncidentPriorityRequest request
     ) {
         return ResponseEntity.ok(incidentService.updateIncidentPriority(id, request));
+    }
+
+    @PatchMapping("/{id}/urban-asset")
+    @PreAuthorize("hasAnyRole('OPERATOR', 'ADMIN')")
+    public ResponseEntity<IncidentDTO> updateIncidentUrbanAsset(
+            @PathVariable Integer id,
+            @RequestBody UpdateIncidentUrbanAssetRequest request
+    ) {
+        return ResponseEntity.ok(incidentService.updateIncidentUrbanAsset(id, request));
     }
 
     @PostMapping("/{id}/comments")

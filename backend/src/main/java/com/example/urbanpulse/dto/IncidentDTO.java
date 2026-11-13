@@ -21,7 +21,6 @@ public class IncidentDTO {
     private String urbanAssetTipo;
     private UrbanAssetDTO urbanAsset;
     private String localizacion;
-    private String direccionNormalizada;
     private BigDecimal latitud;
     private BigDecimal longitud;
     private String estado;
@@ -67,7 +66,6 @@ public class IncidentDTO {
         }
 
         dto.setLocalizacion(incident.getLocalizacion());
-        dto.setDireccionNormalizada(incident.getLocalizacion());
         dto.setLatitud(incident.getLatitud());
         dto.setLongitud(incident.getLongitud());
         dto.setEstado(incident.getEstado());
@@ -169,14 +167,6 @@ public class IncidentDTO {
 
     public void setLocalizacion(String localizacion) {
         this.localizacion = localizacion;
-    }
-
-    public String getDireccionNormalizada() {
-        return direccionNormalizada;
-    }
-
-    public void setDireccionNormalizada(String direccionNormalizada) {
-        this.direccionNormalizada = direccionNormalizada;
     }
 
     public BigDecimal getLatitud() {

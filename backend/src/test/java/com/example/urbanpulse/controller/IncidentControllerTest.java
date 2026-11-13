@@ -382,6 +382,38 @@ class IncidentControllerTest {
     }
 
     /** Token simulado de un ciudadano con id 1 (sujeto del JWT). */
+    @Test
+    @DisplayName("PATCH /api/incidents/{id}/urban-asset permite al operador cambiar el activo asociado")
+    void testUpdateIncidentUrbanAsset() throws Exception {
+        IncidentDTO dto = new IncidentDTO();
+        dto.setId(1);
+        dto.setUrbanAssetId(8);
+        dto.setUrbanAssetTipo("CONTENEDOR_VIDRIO");
+        when(incidentService.updateIncidentUrbanAsset(
+                org.mockito.ArgumentMatchers.eq(1),
+                org.mockito.ArgumentMatchers.argThat(r -> Integer.valueOf(8).equals(r.getUrbanAssetId()))
+        )).thenReturn(dto);
+
+        mockMvc.perform(patch("/api/incidents/1/urban-asset").with(operatorToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "urbanAssetId": 8
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.urbanAssetId").value(8));
+    }
+
+    @Test
+    @DisplayName("PATCH /api/incidents/{id}/urban-asset debe denegar a ciudadanos")
+    void testCitizenCannotUpdateIncidentUrbanAsset() throws Exception {
+        mockMvc.perform(patch("/api/incidents/1/urban-asset").with(citizenToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"urbanAssetId\": 8}"))
+                .andExpect(status().isForbidden());
+    }
+
     private static org.springframework.test.web.servlet.request.RequestPostProcessor citizenToken() {
         return jwt().jwt(token -> token.subject("1").claim(SecurityConfig.ROLE_CLAIM, "CITIZEN"))
                 .authorities(new SimpleGrantedAuthority("ROLE_CITIZEN"));

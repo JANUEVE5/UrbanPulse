@@ -1,21 +1,27 @@
 package com.example.urbanpulse.dto;
 
 import com.example.urbanpulse.entity.UrbanAsset;
+import com.fasterxml.jackson.annotation.JsonInclude;
 
 import java.math.BigDecimal;
 
 /**
- * DTO para transferir información de un activo urbano (ej. parada de autobús EMT, farola, etc.).
+ * Activo urbano tal como lo devuelve la API. {@code distanciaMetros} y {@code confianza} solo aparecen
+ * cuando el activo se ha buscado cerca de un punto ({@code GET /api/urban-assets/nearby}).
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class UrbanAssetDTO {
 
     private Integer id;
     private String tipo;
     private String nombre;
+    private String descripcion;
+    private String direccion;
     private BigDecimal latitud;
     private BigDecimal longitud;
     private String fuente;
-    private String metadatos;
+    private Integer distanciaMetros;
+    private String confianza;
 
     public UrbanAssetDTO() {
     }
@@ -28,10 +34,11 @@ public class UrbanAssetDTO {
         dto.setId(asset.getId());
         dto.setTipo(asset.getTipo());
         dto.setNombre(asset.getNombre());
+        dto.setDescripcion(asset.getDescripcion());
+        dto.setDireccion(asset.getDireccion());
         dto.setLatitud(asset.getLatitud());
         dto.setLongitud(asset.getLongitud());
         dto.setFuente(asset.getFuente());
-        dto.setMetadatos(asset.getMetadatos());
         return dto;
     }
 
@@ -59,6 +66,22 @@ public class UrbanAssetDTO {
         this.nombre = nombre;
     }
 
+    public String getDescripcion() {
+        return descripcion;
+    }
+
+    public void setDescripcion(String descripcion) {
+        this.descripcion = descripcion;
+    }
+
+    public String getDireccion() {
+        return direccion;
+    }
+
+    public void setDireccion(String direccion) {
+        this.direccion = direccion;
+    }
+
     public BigDecimal getLatitud() {
         return latitud;
     }
@@ -83,12 +106,19 @@ public class UrbanAssetDTO {
         this.fuente = fuente;
     }
 
-    public String getMetadatos() {
-        return metadatos;
+    public Integer getDistanciaMetros() {
+        return distanciaMetros;
     }
 
-    public void setMetadatos(String metadatos) {
-        this.metadatos = metadatos;
+    public void setDistanciaMetros(Integer distanciaMetros) {
+        this.distanciaMetros = distanciaMetros;
+    }
+
+    public String getConfianza() {
+        return confianza;
+    }
+
+    public void setConfianza(String confianza) {
+        this.confianza = confianza;
     }
 }
-
