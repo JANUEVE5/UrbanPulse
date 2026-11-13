@@ -12,6 +12,16 @@ import { useTheme } from '@/hooks/use-theme';
 type Mode = 'login' | 'register';
 
 /**
+ * SOLO DESARROLLO: acceso rápido por rol. Se carga con require dentro de __DEV__ para que en producción
+ * Metro elimine la rama y el módulo (con los usuarios de prueba) no llegue al código publicado;
+ * un import normal lo incluiría aunque no se mostrara.
+ */
+const DevQuickLogin: typeof import('@/components/dev-quick-login').DevQuickLogin | null = __DEV__
+  ? // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('@/components/dev-quick-login').DevQuickLogin
+  : null;
+
+/**
  * Formulario de inicio de sesión o de creación de cuenta (RF01).
  * Con ?destino=crear, al terminar abre directamente el formulario de nueva incidencia.
  */
@@ -42,13 +52,19 @@ export function AuthForm({ mode }: { mode: Mode }) {
       return;
     }
 
+    await authenticate(() =>
+      isRegister
+        ? register({ nombre: nombre.trim(), correo: correo.trim(), password })
+        : login({ correo: correo.trim(), password }),
+    );
+  };
+
+  /** Ejecuta el login o el registro y, si va bien, vuelve a incidencias (o abre el formulario de crear). */
+  const authenticate = async (action: () => Promise<unknown>) => {
+    setError(null);
     setSending(true);
     try {
-      if (isRegister) {
-        await register({ nombre: nombre.trim(), correo: correo.trim(), password });
-      } else {
-        await login({ correo: correo.trim(), password });
-      }
+      await action();
       router.replace(
         destino === 'crear' ? { pathname: '/incidents', params: { crear: '1' } } : '/incidents',
       );
@@ -167,6 +183,16 @@ export function AuthForm({ mode }: { mode: Mode }) {
             </ThemedText>
           </ThemedText>
         </Pressable>
+
+        {/* SOLO DESARROLLO: __DEV__ es false en las versiones publicadas, así que no se incluye */}
+        {DevQuickLogin && !isRegister && (
+          <DevQuickLogin
+            disabled={sending}
+            onLogin={(devCorreo, devPassword) =>
+              void authenticate(() => login({ correo: devCorreo, password: devPassword }))
+            }
+          />
+        )}
       </View>
     </ScrollView>
   );
