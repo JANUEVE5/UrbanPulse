@@ -147,6 +147,26 @@ administración) que entra con estos usuarios sin escribir credenciales. Es temp
 en las versiones publicadas no se incluye en el código (`src/components/dev-quick-login.tsx`, cargado solo si
 `__DEV__` es `true`).
 
+### Activos urbanos (Open Data Málaga)
+
+`data.sql` ya no crea activos urbanos. Al arrancar, el backend descarga en segundo plano los activos de
+Open Data Málaga (paradas de autobús, contenedores, semáforos, desfibriladores…) y los repite cada día
+([ADR-015](adr/015-sincronizacion-activos-open-data.md)). Tarda unos segundos; en el log aparece una línea
+por fuente y al final un resumen:
+
+```text
+Open Data: sincronización terminada. 8151 activos actualizados; 4 de 22 fuentes sin datos.
+```
+
+Que alguna fuente salga «sin datos» es normal: el portal a veces publica ficheros vacíos o con errores, y en
+ese caso se conservan los activos anteriores. Sin conexión a internet la API funciona igual, pero sin activos;
+para no intentar la descarga, arranca con `OPENDATA_SYNC_ENABLED=false`. Para comprobar que hay activos:
+
+```bash
+curl "http://localhost:8080/api/urban-assets/nearby?latitud=36.7187&longitud=-4.4208" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
 ## 5. Ejecutar el frontend
 
 ```bash
@@ -236,6 +256,9 @@ Todas están documentadas en [`.env.example`](../.env.example).
 | `SHOW_SQL` | Backend | `true` para ver en los logs las consultas SQL (por defecto `false`). |
 | `JWT_SECRET` | Backend | Clave para firmar los tokens (mínimo 32 caracteres). El valor por defecto solo sirve en local. |
 | `JWT_EXPIRATION_MINUTES` | Backend | Minutos de validez de cada token (por defecto 60). |
+| `OPENDATA_BASE_URL` | Backend | Portal de datos abiertos del que se descargan los activos urbanos. |
+| `OPENDATA_SYNC_ENABLED` | Backend | `false` para no sincronizar los activos (por ejemplo, sin internet). Los tests lo desactivan. |
+| `OPENDATA_SYNC_CRON` | Backend | Cuándo se repite la sincronización (por defecto `0 0 4 * * *`, cada día a las 4:00). |
 | `EXPO_PUBLIC_API_URL` | Frontend | URL base de la API. Es pública: nunca pongas secretos en ella. |
 
 ## 9. Estructura del código
@@ -269,5 +292,6 @@ frontend/src/
 | `password authentication failed` | Las credenciales de `.env` / `application.properties` no coinciden con las de la BD. | Alinea `POSTGRES_PASSWORD` y `SPRING_DATASOURCE_PASSWORD`. |
 | `Port 5432 is already allocated` | Ya hay un PostgreSQL local escuchando. | Páralo o cambia `POSTGRES_PORT` (y la URL de Spring). |
 | La app web muestra un error de CORS al llamar a la API | Abres la web desde un origen que no está en `CORS_ALLOWED_ORIGINS`. | Añade esa URL a `CORS_ALLOWED_ORIGINS` y reinicia el backend. |
+| Al crear una incidencia no aparece ningún elemento urbano cercano | La sincronización aún no ha terminado, o no hay conexión con el portal. | Espera al mensaje «Open Data: sincronización terminada» en el log del backend. |
 | `./mvnw: Permission denied` | El wrapper no tiene permisos de ejecución. | `chmod +x mvnw`. |
 | La app en el móvil no carga datos | El móvil no llega a `localhost`. | Define `EXPO_PUBLIC_API_URL` con la IP de tu equipo. |
