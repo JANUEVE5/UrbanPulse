@@ -1,3 +1,4 @@
+import { roundCoordinate } from '@/lib/coordinates';
 import { apiRequest } from '@/services/apiClient';
 
 export interface StatusChange {
@@ -75,7 +76,12 @@ export function getIncidentById(id: number): Promise<Incident> {
 export function createIncident(input: CreateIncidentInput): Promise<Incident> {
   return apiRequest<Incident>('/incidents', {
     method: 'POST',
-    body: input,
+    // La API solo acepta 6 decimales; el GPS devuelve más (#47)
+    body: {
+      ...input,
+      latitud: roundCoordinate(input.latitud),
+      longitud: roundCoordinate(input.longitud),
+    },
     errorMessages: { 401: 'Inicia sesión para registrar una incidencia.' },
   });
 }
