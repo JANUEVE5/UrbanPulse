@@ -5,6 +5,7 @@ import com.example.urbanpulse.dto.CreateIncidentRequest;
 import com.example.urbanpulse.dto.CreateIncidentCommentRequest;
 import com.example.urbanpulse.dto.UpdateIncidentStatusRequest;
 import com.example.urbanpulse.dto.UpdateIncidentPriorityRequest;
+import com.example.urbanpulse.dto.UpdateIncidentUrbanAssetRequest;
 import com.example.urbanpulse.entity.AppUser;
 import com.example.urbanpulse.entity.Incident;
 import com.example.urbanpulse.entity.Rol;
@@ -16,6 +17,7 @@ import com.example.urbanpulse.repository.IncidentRepository;
 import com.example.urbanpulse.repository.StatusChangeRepository;
 import com.example.urbanpulse.service.IncidentService;
 import com.example.urbanpulse.service.IncidentStatus;
+import com.example.urbanpulse.service.UrbanAssetService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,17 +46,20 @@ public class IncidentServiceImpl implements IncidentService {
     private final StatusChangeRepository statusChangeRepository;
     private final AppUserRepository appUserRepository;
     private final IncidentCommentRepository incidentCommentRepository;
+    private final UrbanAssetService urbanAssetService;
 
     public IncidentServiceImpl(
             IncidentRepository incidentRepository,
             StatusChangeRepository statusChangeRepository,
             AppUserRepository appUserRepository,
-            IncidentCommentRepository incidentCommentRepository
+            IncidentCommentRepository incidentCommentRepository,
+            UrbanAssetService urbanAssetService
     ) {
         this.incidentRepository = incidentRepository;
         this.statusChangeRepository = statusChangeRepository;
         this.appUserRepository = appUserRepository;
         this.incidentCommentRepository = incidentCommentRepository;
+        this.urbanAssetService = urbanAssetService;
     }
 
     @Override
@@ -93,6 +98,17 @@ public class IncidentServiceImpl implements IncidentService {
         incident.setEstado("Abierta");
         incident.setPrioridad(request.getPrioridad() == null ? "Media" : request.getPrioridad());
         incident.setCreador(creator);
+
+        // Activo urbano elegido por el usuario entre los cercanos (RF22): debe existir y estar cerca
+        if (request.getUrbanAssetId() != null) {
+            incident.setUrbanAsset(urbanAssetService.getAssetNear(
+                    request.getUrbanAssetId(), request.getLatitud(), request.getLongitud()));
+        }
+
+        String localizacion = request.getLocalizacion() != null && !request.getLocalizacion().isBlank()
+                ? request.getLocalizacion().trim()
+                : null;
+        incident.setLocalizacion(localizacion);
 
         return IncidentDTO.fromEntity(incidentRepository.save(incident));
     }
@@ -162,6 +178,23 @@ public class IncidentServiceImpl implements IncidentService {
                 ));
 
         incident.setPrioridad(request.getPrioridad());
+        incidentRepository.save(incident);
+        return getIncidentById(id).orElseThrow();
+    }
+
+    @Override
+    @Transactional
+    public IncidentDTO updateIncidentUrbanAsset(Integer id, UpdateIncidentUrbanAssetRequest request) {
+        Incident incident = incidentRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "No existe la incidencia con identificador " + id + "."
+                ));
+
+        // El operador confirma, cambia o quita el activo propuesto (RF22)
+        incident.setUrbanAsset(request.getUrbanAssetId() == null
+                ? null
+                : urbanAssetService.getAssetNear(request.getUrbanAssetId(), incident.getLatitud(), incident.getLongitud()));
         incidentRepository.save(incident);
         return getIncidentById(id).orElseThrow();
     }

@@ -4,6 +4,7 @@ import com.example.urbanpulse.dto.IncidentDTO;
 import com.example.urbanpulse.dto.CreateIncidentRequest;
 import com.example.urbanpulse.dto.UpdateIncidentStatusRequest;
 import com.example.urbanpulse.dto.UpdateIncidentPriorityRequest;
+import com.example.urbanpulse.dto.UpdateIncidentUrbanAssetRequest;
 import com.example.urbanpulse.dto.CreateIncidentCommentRequest;
 import com.example.urbanpulse.entity.AppUser;
 import com.example.urbanpulse.entity.Incident;
@@ -15,6 +16,7 @@ import com.example.urbanpulse.repository.IncidentRepository;
 import com.example.urbanpulse.repository.IncidentCommentRepository;
 import com.example.urbanpulse.repository.AppUserRepository;
 import com.example.urbanpulse.repository.StatusChangeRepository;
+import com.example.urbanpulse.service.UrbanAssetService;
 import com.example.urbanpulse.service.impl.IncidentServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -23,6 +25,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -46,6 +51,9 @@ class IncidentServiceTest {
 
     @Mock
     private IncidentCommentRepository incidentCommentRepository;
+
+    @Mock
+    private UrbanAssetService urbanAssetService;
 
     @InjectMocks
     private IncidentServiceImpl incidentService;
@@ -449,5 +457,87 @@ class IncidentServiceTest {
                         && saved.getIncident() == testIncident
                         && saved.getContenido().equals("Ya se ha avisado al equipo municipal.")
         ));
+    }
+
+    @Test
+    @DisplayName("createIncident asocia el activo urbano elegido si está cerca (RF22)")
+    void testCreateIncidentWithNearbyUrbanAsset() {
+        CreateIncidentRequest request = new CreateIncidentRequest();
+        request.setTitulo("Marquesina rota");
+        request.setDescripcion("El cristal de la marquesina está roto.");
+        request.setLatitud(new BigDecimal("36.721274"));
+        request.setLongitud(new BigDecimal("-4.421399"));
+        request.setUrbanAssetId(7);
+        UrbanAsset parada = new UrbanAsset(7, "PARADA_AUTOBUS");
+
+        when(appUserRepository.findById(1)).thenReturn(Optional.of(testUser));
+        when(urbanAssetService.getAssetNear(7, request.getLatitud(), request.getLongitud())).thenReturn(parada);
+        when(incidentRepository.save(any(Incident.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        IncidentDTO result = incidentService.createIncident(request, 1);
+
+        assertEquals(7, result.getUrbanAssetId());
+        assertEquals("PARADA_AUTOBUS", result.getUrbanAssetTipo());
+    }
+
+    @Test
+    @DisplayName("createIncident rechaza un activo urbano que no existe o está lejos y no guarda nada")
+    void testCreateIncidentRejectsInvalidUrbanAsset() {
+        CreateIncidentRequest request = new CreateIncidentRequest();
+        request.setTitulo("Marquesina rota");
+        request.setDescripcion("El cristal de la marquesina está roto.");
+        request.setLatitud(new BigDecimal("36.721274"));
+        request.setLongitud(new BigDecimal("-4.421399"));
+        request.setUrbanAssetId(99);
+
+        when(appUserRepository.findById(1)).thenReturn(Optional.of(testUser));
+        when(urbanAssetService.getAssetNear(eq(99), any(), any()))
+                .thenThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "No existe el activo urbano."));
+
+        ResponseStatusException error = assertThrows(ResponseStatusException.class,
+                () -> incidentService.createIncident(request, 1));
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatusCode());
+        verify(incidentRepository, never()).save(any(Incident.class));
+    }
+
+    @Test
+    @DisplayName("createIncident sin activo urbano no lo asocia")
+    void testCreateIncidentWithoutUrbanAsset() {
+        CreateIncidentRequest request = new CreateIncidentRequest();
+        request.setTitulo("Bache");
+        request.setDescripcion("Bache en la calzada.");
+        request.setLatitud(new BigDecimal("36.721274"));
+        request.setLongitud(new BigDecimal("-4.421399"));
+
+        when(appUserRepository.findById(1)).thenReturn(Optional.of(testUser));
+        when(incidentRepository.save(any(Incident.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        IncidentDTO result = incidentService.createIncident(request, 1);
+
+        assertNull(result.getUrbanAssetId());
+        assertNull(result.getUrbanAsset());
+        verifyNoInteractions(urbanAssetService);
+    }
+
+    @Test
+    @DisplayName("updateIncidentUrbanAsset cambia el activo y null quita la asociación")
+    void testUpdateIncidentUrbanAsset() {
+        testIncident.setLatitud(new BigDecimal("36.721274"));
+        testIncident.setLongitud(new BigDecimal("-4.421399"));
+        UrbanAsset contenedor = new UrbanAsset(8, "CONTENEDOR_VIDRIO");
+        UpdateIncidentUrbanAssetRequest cambiar = new UpdateIncidentUrbanAssetRequest();
+        cambiar.setUrbanAssetId(8);
+
+        when(incidentRepository.findByIdForUpdate(1)).thenReturn(Optional.of(testIncident));
+        when(incidentRepository.findById(1)).thenReturn(Optional.of(testIncident));
+        when(urbanAssetService.getAssetNear(8, testIncident.getLatitud(), testIncident.getLongitud()))
+                .thenReturn(contenedor);
+
+        assertEquals(8, incidentService.updateIncidentUrbanAsset(1, cambiar).getUrbanAssetId());
+
+        IncidentDTO sinActivo = incidentService.updateIncidentUrbanAsset(1, new UpdateIncidentUrbanAssetRequest());
+        assertNull(sinActivo.getUrbanAssetId());
+        verify(incidentRepository, times(2)).save(testIncident);
     }
 }

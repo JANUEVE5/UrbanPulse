@@ -16,10 +16,24 @@ CREATE TABLE "User" (
                                         CHECK (rol IN ('CITIZEN', 'OPERATOR', 'TECHNICIAN', 'ADMIN', 'ANALYST'))
 );
 
+-- Activos urbanos (RF22, ADR-015): se sincronizan desde Open Data Málaga. Cada activo se identifica
+-- por su fuente y el identificador que tiene en ella, así una nueva sincronización actualiza en vez de duplicar.
 CREATE TABLE "UrbanAsset" (
                               id              INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-                              tipo            VARCHAR(50) NOT NULL
+                              tipo            VARCHAR(50) NOT NULL,
+                              nombre          VARCHAR(200),
+                              descripcion     VARCHAR(400),
+                              direccion       VARCHAR(200),
+                              latitud         NUMERIC(9,6) NOT NULL CHECK (latitud BETWEEN -90 AND 90),
+                              longitud        NUMERIC(9,6) NOT NULL CHECK (longitud BETWEEN -180 AND 180),
+                              fuente          VARCHAR(50) NOT NULL,
+                              id_externo      VARCHAR(100) NOT NULL,
+                              actualizado_en  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                              UNIQUE (fuente, id_externo)
 );
+
+-- Búsqueda de activos cercanos a un punto (por recuadro de latitud y longitud)
+CREATE INDEX idx_urban_asset_posicion ON "UrbanAsset" (latitud, longitud);
 
 CREATE TABLE "Incident" (
                             id              INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

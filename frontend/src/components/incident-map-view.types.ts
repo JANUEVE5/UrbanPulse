@@ -1,5 +1,7 @@
 import type { MutableRefObject } from 'react';
 
+import type { UrbanAsset } from '@/services/urbanAssetService';
+
 export interface Coordinate {
   latitude: number;
   longitude: number;
@@ -26,4 +28,10 @@ export interface IncidentMapViewProps {
   initialRegion?: MapRegion;
   onPress?: (event: MapPressEvent) => void;
   selectedCoordinate?: Coordinate | null;
+  /** Activos urbanos que se dibujan como marcadores pequeños con el icono de su tipo. */
+  urbanAssets?: UrbanAsset[];
+  /** Al pulsar el marcador de un activo (por ejemplo, para elegirlo). */
+  onUrbanAssetPress?: (asset: UrbanAsset) => void;
+  /** Activo resaltado en el mapa. */
+  selectedUrbanAssetId?: number | null;
 }

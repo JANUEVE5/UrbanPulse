@@ -1,5 +1,6 @@
 import { roundCoordinate } from '@/lib/coordinates';
 import { apiRequest } from '@/services/apiClient';
+import type { UrbanAsset } from '@/services/urbanAssetService';
 
 export interface StatusChange {
   id: number;
@@ -26,6 +27,7 @@ export interface Incident {
   categoria?: string | null;
   urbanAssetId?: number | null;
   urbanAssetTipo?: string | null;
+  urbanAsset?: UrbanAsset | null;
   localizacion?: string | null;
   latitud?: number | null;
   longitud?: number | null;
@@ -48,6 +50,8 @@ export interface CreateIncidentInput {
   prioridad?: IncidentPriority;
   latitud: number;
   longitud: number;
+  urbanAssetId?: number | null;
+  localizacion?: string | null;
 }
 
 /** Incidencias visibles para el usuario autenticado según su rol. */
@@ -113,5 +117,14 @@ export function addIncidentComment(id: number, contenido: string): Promise<Incid
   return apiRequest<Incident>(`/incidents/${id}/comments`, {
     method: 'POST',
     body: { contenido },
+  });
+}
+
+/** Cambia o quita (urbanAssetId = null) el activo urbano asociado (OPERATOR o ADMIN, RF22). */
+export function updateIncidentUrbanAsset(id: number, urbanAssetId: number | null): Promise<Incident> {
+  return apiRequest<Incident>(`/incidents/${id}/urban-asset`, {
+    method: 'PATCH',
+    body: { urbanAssetId },
+    errorMessages: { 400: 'El elemento elegido ya no existe o está demasiado lejos de la incidencia.' },
   });
 }

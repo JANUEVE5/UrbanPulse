@@ -19,6 +19,7 @@ public class IncidentDTO {
     private String reporteCentral;
     private Integer urbanAssetId;
     private String urbanAssetTipo;
+    private UrbanAssetDTO urbanAsset;
     private String localizacion;
     private BigDecimal latitud;
     private BigDecimal longitud;
@@ -61,6 +62,7 @@ public class IncidentDTO {
         if (incident.getUrbanAsset() != null) {
             dto.setUrbanAssetId(incident.getUrbanAsset().getId());
             dto.setUrbanAssetTipo(incident.getUrbanAsset().getTipo());
+            dto.setUrbanAsset(UrbanAssetDTO.fromEntity(incident.getUrbanAsset()));
         }
 
         dto.setLocalizacion(incident.getLocalizacion());
@@ -149,6 +151,14 @@ public class IncidentDTO {
 
     public void setUrbanAssetTipo(String urbanAssetTipo) {
         this.urbanAssetTipo = urbanAssetTipo;
+    }
+
+    public UrbanAssetDTO getUrbanAsset() {
+        return urbanAsset;
+    }
+
+    public void setUrbanAsset(UrbanAssetDTO urbanAsset) {
+        this.urbanAsset = urbanAsset;
     }
 
     public String getLocalizacion() {

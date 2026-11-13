@@ -64,7 +64,8 @@ flowchart TB
 | Técnico | Gestiona su cola de trabajo y documenta la resolución. | 📋 |
 | Administrador | Configura usuarios, roles y catálogos. | 📋 |
 | Analista | Explota indicadores y análisis territoriales. | 📋 |
-| Datos del Ayuntamiento / contexto | Aportan contexto urbano. Su caída no impide registrar la incidencia. | 📋 |
+| Datos abiertos del Ayuntamiento | Activos urbanos (paradas, contenedores, semáforos…) que se sincronizan cada día ([ADR-015](adr/015-sincronizacion-activos-open-data.md)). Su caída no impide registrar la incidencia. | 🚧 |
+| Fuentes de contexto | Clima, tráfico, eventos. | 📋 |
 
 ---
 
@@ -87,7 +88,7 @@ flowchart TB
     app -- "JSON / HTTPS<br/>/api/*" --> api
     api -- "JPA / JDBC" --> db
     api -. "subida y descarga<br/>de ficheros (📋)" .-> obj
-    api -. "enriquecimiento<br/>asíncrono (📋)" .-> ext
+    api -- "descarga diaria de<br/>activos urbanos (ADR-015)" --> ext
 ```
 
 | Contenedor | Tecnología | Responsabilidad | Estado |
@@ -115,11 +116,14 @@ flowchart LR
             ac["AuthController<br/><small>/api/auth</small>"]
             ic["IncidentController<br/><small>/api/incidents</small>"]
             uc["AppUserController<br/><small>/api/users</small>"]
+            uac["UrbanAssetController<br/><small>/api/urban-assets</small>"]
         end
         subgraph svc["service"]
             as["AuthService"]
             ts["TokenService<br/><small>emite JWT</small>"]
             is["IncidentService"]
+            uas["UrbanAssetService<br/><small>activos cercanos</small>"]
+            sync["UrbanAssetSyncService<br/><small>OpenDataClient · OpenDataParser</small>"]
         end
         subgraph repo["repository"]
             ir["IncidentRepository"]
@@ -130,16 +134,23 @@ flowchart LR
         dto["dto<br/><small>IncidentDTO · CreateIncidentRequest<br/>StatusChangeDTO</small>"]
         sec["config · SecurityConfig<br/><small>Spring Security: valida JWT,<br/>401 / 403 por rol</small>"]
         cfg["config<br/><small>WebConfig (CORS)</small>"]
+        sched["config · OpenDataSyncScheduler<br/><small>al arrancar y cada día</small>"]
     end
 
     db[("PostgreSQL")]
+    odm["🌐 Open Data Málaga"]
 
     client -- "Authorization: Bearer JWT" --> sec
-    sec --> ac & ic & uc
+    sec --> ac & ic & uc & uac
     ac --> as
     as --> ts & ur
     ic --> is
-    is --> ir & sr & ur
+    is --> ir & sr & ur & uas
+    uac --> uas
+    uas --> ar
+    sched --> sync
+    sync -- "GeoJSON" --> odm
+    sync -- "upsert (JDBC)" --> db
     uc --> ur
     is -.-> dto
     ir & sr & ur & ar --> db
@@ -159,6 +170,8 @@ flowchart LR
 | `PATCH` | `/api/incidents/{id}/status` | `OPERATOR`, `TECHNICIAN`, `ADMIN` | Avanza la incidencia al siguiente estado permitido y registra el actor autenticado, motivo y fecha. | RF12 |
 | `PATCH` | `/api/incidents/{id}/priority` | `OPERATOR`, `ADMIN` | Cambia la prioridad a `Baja`, `Media` o `Alta`. | RF10 |
 | `POST` | `/api/incidents/{id}/comments` | Autenticado | Añade un comentario de hasta 400 caracteres atribuido al usuario autenticado. | RF13 |
+| `PATCH` | `/api/incidents/{id}/urban-asset` | `OPERATOR`, `ADMIN` | Confirma, cambia o quita (`null`) el activo urbano asociado; debe estar a menos de 200 m. | RF22 |
+| `GET` | `/api/urban-assets/nearby?latitud=&longitud=&radio=` | Autenticado | Hasta 10 activos urbanos a menos de `radio` metros (50 por defecto, 200 como máximo), con distancia y confianza. | RF22 |
 | `GET` | `/api/users` | `ADMIN` | Listado de usuarios con su rol (sin contraseñas). | RF02 |
 
 ### Autenticación y autorización ([ADR-009](adr/009-autenticacion-autorizacion-jwt.md))
@@ -226,6 +239,11 @@ classDiagram
     }
     class UrbanAsset {
         tipo
+        nombre
+        latitud
+        longitud
+        fuente
+        idExterno
     }
     class UrbanContext
     class Assignment
@@ -249,7 +267,7 @@ classDiagram
 | `User` (`AppUser`) | Ciudadano o profesional que crea, consulta o modifica según sus permisos. Rol: `CITIZEN`, `OPERATOR`, `TECHNICIAN`, `ADMIN` o `ANALYST`; contraseña con BCrypt. | ✅ |
 | `StatusChange` | Transición auditable con actor, instante, motivo y datos asociados. | 🚧 |
 | `Attachment` | Evidencia almacenada fuera de la BD relacional y referenciada por metadatos. | 🚧 (solo nombre) |
-| `UrbanAsset` | Elemento físico (semáforo, contenedor, parada…) con geometría, fuente y confianza. | 🚧 (solo tipo) |
+| `UrbanAsset` | Elemento físico (semáforo, contenedor, parada…) con ubicación, fuente e identificador en la fuente. Se sincroniza desde Open Data Málaga; la confianza de la asociación se calcula por distancia ([ADR-015](adr/015-sincronizacion-activos-open-data.md)). | ✅ |
 | `UrbanContext` | Contexto reproducible (clima, tráfico, eventos…) de una incidencia o zona. | 📋 |
 | `Assignment` | Relación temporal entre incidencia y departamento, equipo o técnico. | 📋 |
 | `ExternalObservation` | Dato normalizado con fuente, instante de observación e ingesta, unidad y calidad. | 📋 |
@@ -323,3 +341,4 @@ El registro completo está en [`docs/adr/`](adr/README.md).
 | [012](adr/012-despliegue-contenedores.md) | Despliegue como imagen de contenedor | Proposed |
 | [013](adr/013-listado-de-incidencias-propias.md) | Listado de incidencias propias en el mapa y la vista de lista | Superseded by ADR-014 |
 | [014](adr/014-listado-de-incidencias-segun-rol.md) | Mostrar incidencias según el rol autenticado | Accepted |
+| [015](adr/015-sincronizacion-activos-open-data.md) | Sincronización programada de activos urbanos desde Open Data | Proposed |

@@ -14,9 +14,12 @@ import IncidentMapView from '@/components/IncidentMapView';
 import type { Coordinate, MapHandle, MapPressEvent } from '@/components/incident-map-view.types';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { UrbanAssetPicker } from '@/components/urban-asset-picker';
 import { Brand, Spacing } from '@/constants/theme';
+import { useNearbyUrbanAssets } from '@/hooks/use-nearby-urban-assets';
 import { useTheme } from '@/hooks/use-theme';
 import { createIncident, type IncidentPriority } from '@/services/incidentService';
+import type { UrbanAsset } from '@/services/urbanAssetService';
 
 interface CreateIncidentFormProps {
   onCancel: () => void;
@@ -55,17 +58,32 @@ export function CreateIncidentForm({ onCancel, onCreated }: CreateIncidentFormPr
   const [prioridad, setPrioridad] = useState<IncidentPriority>('Media');
   const [selectedCoordinate, setSelectedCoordinate] = useState<Coordinate | null>(null);
 
+  // Activo urbano afectado (RF22): se elige entre los cercanos al punto marcado
+  const nearby = useNearbyUrbanAssets(selectedCoordinate);
+  const [selectedUrbanAsset, setSelectedUrbanAsset] = useState<UrbanAsset | null>(null);
+
   const [region, setRegion] = useState(INITIAL_REGION);
   const [isLocating, setIsLocating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Manejador al tocar en el mapa
+  // Al mover el punto se descarta el elemento elegido: puede que ya no esté cerca
+  const choosePoint = (coordinate: Coordinate) => {
+    setSelectedCoordinate(coordinate);
+    setSelectedUrbanAsset(null);
+  };
+
+  // Manejador al tocar en el mapa libremente
   const handleMapPress = (event: MapPressEvent) => {
     const coordinate = event.nativeEvent.coordinate;
     if (coordinate) {
-      setSelectedCoordinate(coordinate);
+      choosePoint(coordinate);
     }
+  };
+
+  // Pulsar un activo en el mapa lo elige (sin mover el punto de la incidencia)
+  const handleUrbanAssetPress = (asset: UrbanAsset) => {
+    setSelectedUrbanAsset(asset);
   };
 
   // Geolocalización con expo-location
@@ -89,7 +107,7 @@ export function CreateIncidentForm({ onCancel, onCreated }: CreateIncidentFormPr
         longitude: currentLocation.coords.longitude,
       };
 
-      setSelectedCoordinate(newCoord);
+      choosePoint(newCoord);
 
       const targetRegion = {
         latitude: newCoord.latitude,
@@ -133,6 +151,7 @@ export function CreateIncidentForm({ onCancel, onCreated }: CreateIncidentFormPr
         prioridad,
         latitud: selectedCoordinate.latitude,
         longitud: selectedCoordinate.longitude,
+        urbanAssetId: selectedUrbanAsset?.id ?? null,
       });
       await onCreated();
     } catch (submitError: unknown) {
@@ -151,12 +170,12 @@ export function CreateIncidentForm({ onCancel, onCreated }: CreateIncidentFormPr
       <View style={styles.header}>
         <ThemedText type="subtitle">Registrar incidencia</ThemedText>
         <ThemedText type="small" themeColor="textSecondary">
-          Selecciona la ubicación en el mapa (OpenStreetMap con Leaflet) y completa los datos.
+          Marca en el mapa dónde está el problema y, si afecta a un elemento urbano cercano, elígelo.
         </ThemedText>
       </View>
 
       <ThemedView type="backgroundElement" style={styles.form}>
-        {/* Mapa Leaflet (Web) / react-native-maps (Nativo) */}
+        {/* Mapa con el punto de la incidencia y los elementos urbanos cercanos */}
         <View style={styles.mapContainer}>
           <IncidentMapView
             mapRef={mapRef}
@@ -164,6 +183,9 @@ export function CreateIncidentForm({ onCancel, onCreated }: CreateIncidentFormPr
             region={region}
             onPress={handleMapPress}
             selectedCoordinate={selectedCoordinate}
+            urbanAssets={nearby.assets}
+            onUrbanAssetPress={handleUrbanAssetPress}
+            selectedUrbanAssetId={selectedUrbanAsset?.id}
           />
 
           {/* Botón flotante para obtener ubicación actual */}
@@ -187,7 +209,7 @@ export function CreateIncidentForm({ onCancel, onCreated }: CreateIncidentFormPr
         {/* Indicador de coordenadas */}
         <View style={[styles.coordsCard, { borderColor: theme.backgroundSelected }]}>
           <ThemedText type="smallBold" themeColor="textSecondary">
-            Coordenadas en el mapa:
+            Coordenadas seleccionadas:
           </ThemedText>
           <ThemedText type="small" style={styles.coordsValue}>
             {selectedCoordinate
@@ -195,6 +217,24 @@ export function CreateIncidentForm({ onCancel, onCreated }: CreateIncidentFormPr
               : 'Toca en el mapa para marcar la ubicación'}
           </ThemedText>
         </View>
+
+        {/* Elemento urbano afectado (RF22), opcional */}
+        {selectedCoordinate ? (
+          <View style={styles.field}>
+            <ThemedText type="smallBold">Elemento urbano afectado (opcional)</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              Elementos a menos de 50 m según los datos abiertos del Ayuntamiento de Málaga.
+            </ThemedText>
+            <UrbanAssetPicker
+              assets={nearby.assets}
+              loading={nearby.loading}
+              failed={nearby.failed}
+              selectedId={selectedUrbanAsset?.id ?? null}
+              onSelect={setSelectedUrbanAsset}
+              disabled={saving}
+            />
+          </View>
+        ) : null}
 
         {/* Selector de Prioridad */}
         <View style={styles.field}>
@@ -234,7 +274,7 @@ export function CreateIncidentForm({ onCancel, onCreated }: CreateIncidentFormPr
             accessibilityLabel="Título de la incidencia"
             value={titulo}
             onChangeText={setTitulo}
-            placeholder="Ej. Farola apagada en acera"
+            placeholder="Ej. Marquesina rota o banco deteriorado"
             placeholderTextColor={theme.textSecondary}
             maxLength={100}
             returnKeyType="next"
@@ -273,7 +313,7 @@ export function CreateIncidentForm({ onCancel, onCreated }: CreateIncidentFormPr
             accessibilityLabel="Categoría de la incidencia"
             value={categoria}
             onChangeText={setCategoria}
-            placeholder="Ej. Alumbrado, mobiliario, residuos..."
+            placeholder="Ej. Transporte, alumbrado, mobiliario..."
             placeholderTextColor={theme.textSecondary}
             maxLength={50}
             returnKeyType="done"
@@ -331,7 +371,7 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   mapContainer: {
-    height: 280,
+    height: 300,
     borderRadius: Spacing.two,
     overflow: 'hidden',
     position: 'relative',

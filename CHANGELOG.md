@@ -9,6 +9,13 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ### Added
 
+- RF22: activos urbanos reales desde Open Data Málaga (ADR-015). La API sincroniza al arrancar y cada día
+  22 fuentes (paradas de autobús y taxi, aparcamientos, cargadores, semáforos, cámaras, desfibriladores,
+  hidrantes, contenedores, zonas de musculación, parques caninos…); una fuente caída no afecta a las demás ni
+  a la creación de incidencias. Variables `OPENDATA_BASE_URL`, `OPENDATA_SYNC_ENABLED` y `OPENDATA_SYNC_CRON`.
+- RF22: `GET /api/urban-assets/nearby` devuelve los activos a menos de 50 m con su distancia y confianza. Al
+  registrar una incidencia se puede elegir uno de ellos (o ninguno) y el operador o la administración pueden
+  confirmarlo, cambiarlo o quitarlo desde el detalle (`PATCH /api/incidents/{id}/urban-asset`).
 - Acceso rápido por rol en la pantalla de inicio de sesión, **solo en desarrollo**, para probar los permisos
   de cada rol sin escribir credenciales. No se incluye en las versiones publicadas.
 - RF10/RF12: selección de prioridad (`Baja`, `Media` o `Alta`) al registrar una incidencia y controles de
@@ -89,6 +96,12 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ### Fixed
 
+- Todas las incidencias aparecían asociadas a una parada de autobús: el detalle trataba cualquier activo
+  como parada y `data.sql` asignaba activos inventados a todas las incidencias de prueba. Ahora las incidencias
+  de prueba no tienen activo y el detalle muestra el tipo real de cada uno.
+- Al crear una incidencia se podía asociar un activo con un identificador inexistente o de otro tipo (el
+  formulario usaba paradas de ejemplo con identificadores fijos). La API ahora rechaza activos inexistentes o a
+  más de 200 m de la incidencia.
 - Crear una incidencia con «Mi ubicación» fallaba con «Revisa los datos»: el GPS devuelve coordenadas con más
   de 6 decimales y la API las rechazaba. Ahora la app las redondea a 6 decimales antes de enviarlas (#47).
 - Error `_leaflet_pos` en consola al salir de una pantalla con mapa en web.

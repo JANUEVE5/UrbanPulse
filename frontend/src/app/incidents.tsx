@@ -12,11 +12,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CreateIncidentForm } from '@/components/create-incident-form';
 import IncidentMapView from '@/components/IncidentMapView';
+import { IncidentUrbanAsset } from '@/components/incident-urban-asset';
 import IncidentsMap from '@/components/incidents-map';
 import type { MapIncident } from '@/components/incidents-map.types';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Brand, FloatingMenuInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { urbanAssetType } from '@/constants/urban-assets';
 import { useIsWideLayout } from '@/hooks/use-layout';
 import { useAuth } from '@/context/auth-context';
 import { useTheme } from '@/hooks/use-theme';
@@ -300,6 +302,7 @@ export default function IncidentsScreen() {
               onTransition={(estado, motivo) => handleStatusTransition(selectedId, estado, motivo)}
               onPriorityChange={(prioridad) => handlePriorityChange(selectedId, prioridad)}
               onAddComment={(contenido) => handleAddComment(selectedId, contenido)}
+              onIncidentUpdated={setIncidentDetail}
               updatingStatus={updatingStatus}
               updatingPriority={updatingPriority}
               postingComment={postingComment}
@@ -519,7 +522,7 @@ function IncidentListView({
                     ) : null}
                     {incident.urbanAssetTipo ? (
                       <ThemedText type="small" themeColor="textSecondary">
-                        🏛️ {incident.urbanAssetTipo}
+                        {urbanAssetType(incident.urbanAssetTipo).icon} {urbanAssetType(incident.urbanAssetTipo).label}
                       </ThemedText>
                     ) : null}
                     {incident.createdAt ? (
@@ -565,6 +568,7 @@ interface DetailViewProps {
   onTransition: (estado: string, motivo: string) => void;
   onPriorityChange: (prioridad: IncidentPriority) => void;
   onAddComment: (contenido: string) => Promise<boolean>;
+  onIncidentUpdated: (incident: Incident) => void;
   updatingStatus: boolean;
   updatingPriority: boolean;
   postingComment: boolean;
@@ -581,6 +585,7 @@ function IncidentDetailView({
   onTransition,
   onPriorityChange,
   onAddComment,
+  onIncidentUpdated,
   updatingStatus,
   updatingPriority,
   postingComment,
@@ -762,7 +767,6 @@ function IncidentDetailView({
               🏙️ UBICACIÓN Y ACTIVO URBANO
             </ThemedText>
 
-            {/* Dirección escrita (opcional) */}
             {incident.localizacion ? (
               <View style={styles.attributeRow}>
                 <ThemedText type="smallBold" themeColor="textSecondary" style={styles.attributeLabel}>
@@ -810,24 +814,21 @@ function IncidentDetailView({
                       longitudeDelta: 0.005,
                     }}
                     selectedCoordinate={coords}
+                    urbanAssets={incident.urbanAsset ? [incident.urbanAsset] : []}
                   />
                 </View>
                 <ThemedText type="small" themeColor="textSecondary" style={styles.mapHintText}>
-                  📍 Ubicación de la incidencia marcada en el mapa
+                  📍 Ubicación de la incidencia{incident.urbanAsset ? ' y elemento urbano afectado' : ''}
                 </ThemedText>
               </View>
             )}
 
-            <View style={styles.attributeRow}>
-              <ThemedText type="smallBold" themeColor="textSecondary" style={styles.attributeLabel}>
-                Activo Urbano Asociado:
-              </ThemedText>
-              <ThemedText type="default" style={styles.attributeValue}>
-                {incident.urbanAssetTipo
-                  ? `${incident.urbanAssetTipo} (ID: ${incident.urbanAssetId})`
-                  : 'Ninguno asignado'}
-              </ThemedText>
-            </View>
+            <IncidentUrbanAsset
+              incident={incident}
+              coordinate={coords}
+              canManage={canManagePriority}
+              onUpdated={onIncidentUpdated}
+            />
           </ThemedView>
 
           {/* Tarjeta 3: Creador y Registro */}

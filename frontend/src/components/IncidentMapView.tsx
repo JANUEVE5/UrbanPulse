@@ -3,6 +3,8 @@ import { Platform, StyleSheet } from 'react-native';
 import MapView, { Marker, UrlTile } from 'react-native-maps';
 
 import type { IncidentMapViewProps } from './incident-map-view.types';
+import { Brand } from '@/constants/theme';
+import { urbanAssetType } from '@/constants/urban-assets';
 
 /** Mapa de incidencias para Android/iOS (react-native-maps + teselas de OpenStreetMap). */
 export default function IncidentMapView({
@@ -11,6 +13,9 @@ export default function IncidentMapView({
   initialRegion,
   onPress,
   selectedCoordinate,
+  urbanAssets,
+  onUrbanAssetPress,
+  selectedUrbanAssetId,
 }: IncidentMapViewProps) {
   return (
     <MapView
@@ -27,6 +32,24 @@ export default function IncidentMapView({
         maximumZ={19}
         flipY={false}
       />
+
+      {/* Activos urbanos cercanos: azul, y el elegido más oscuro */}
+      {urbanAssets?.map((asset) => (
+        <Marker
+          key={`urban-asset-${asset.id}`}
+          coordinate={{ latitude: asset.latitud, longitude: asset.longitud }}
+          title={`${urbanAssetType(asset.tipo).icon} ${urbanAssetType(asset.tipo).label}`}
+          description={asset.nombre ?? undefined}
+          pinColor={selectedUrbanAssetId === asset.id ? Brand.blue : 'azure'}
+          onPress={(e) => {
+            // Que pulsar el activo no cuente también como pulsar el mapa (movería el punto)
+            e.stopPropagation();
+            onUrbanAssetPress?.(asset);
+          }}
+        />
+      ))}
+
+      {/* Marcador del punto de la incidencia (color rojo) */}
       {selectedCoordinate && (
         <Marker
           coordinate={selectedCoordinate}
