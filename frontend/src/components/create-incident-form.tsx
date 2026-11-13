@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -11,12 +11,13 @@ import {
 import * as Location from 'expo-location';
 
 import IncidentMapView from '@/components/IncidentMapView';
-import type { Coordinate, MapHandle, MapPressEvent } from '@/components/incident-map-view.types';
+import type { Coordinate, MapHandle, MapPressEvent, UrbanAsset } from '@/components/incident-map-view.types';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Brand, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { createIncident, type IncidentPriority } from '@/services/incidentService';
+import { extractStopLines, extractStopName, getUrbanAssets } from '@/services/urbanAssetService';
 
 interface CreateIncidentFormProps {
   onCancel: () => void;
@@ -55,17 +56,69 @@ export function CreateIncidentForm({ onCancel, onCreated }: CreateIncidentFormPr
   const [prioridad, setPrioridad] = useState<IncidentPriority>('Media');
   const [selectedCoordinate, setSelectedCoordinate] = useState<Coordinate | null>(null);
 
+  // Estado para activos urbanos (paradas EMT)
+  const [urbanAssets, setUrbanAssets] = useState<UrbanAsset[]>([]);
+  const [loadingAssets, setLoadingAssets] = useState<boolean>(true);
+  const [selectedUrbanAsset, setSelectedUrbanAsset] = useState<UrbanAsset | null>(null);
+
   const [region, setRegion] = useState(INITIAL_REGION);
   const [isLocating, setIsLocating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Manejador al tocar en el mapa
+  // Carga inicial de activos urbanos (paradas de autobús EMT)
+  useEffect(() => {
+    let isMounted = true;
+    getUrbanAssets('BUS_STOP')
+      .then((data) => {
+        if (isMounted) {
+          setUrbanAssets(data);
+        }
+      })
+      .catch((err) => {
+        console.error('Error al cargar paradas EMT:', err);
+      })
+      .finally(() => {
+        if (isMounted) {
+          setLoadingAssets(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Manejador al tocar en el mapa libremente
   const handleMapPress = (event: MapPressEvent) => {
     const coordinate = event.nativeEvent.coordinate;
     if (coordinate) {
       setSelectedCoordinate(coordinate);
     }
+  };
+
+  // Manejador al pulsar sobre un marcador de parada EMT (asociación explícita)
+  const handleUrbanAssetPress = (asset: UrbanAsset) => {
+    if (asset.latitud != null && asset.longitud != null) {
+      const coord = {
+        latitude: asset.latitud,
+        longitude: asset.longitud,
+      };
+      setSelectedCoordinate(coord);
+      setSelectedUrbanAsset(asset);
+
+      // Centrar suavemente en la parada seleccionada
+      mapRef.current?.animateToRegion({
+        latitude: coord.latitude,
+        longitude: coord.longitude,
+        latitudeDelta: 0.005,
+        longitudeDelta: 0.005,
+      });
+    }
+  };
+
+  const handleDeselectAsset = () => {
+    setSelectedUrbanAsset(null);
   };
 
   // Geolocalización con expo-location
@@ -133,6 +186,7 @@ export function CreateIncidentForm({ onCancel, onCreated }: CreateIncidentFormPr
         prioridad,
         latitud: selectedCoordinate.latitude,
         longitud: selectedCoordinate.longitude,
+        urbanAssetId: selectedUrbanAsset?.id ?? null,
       });
       await onCreated();
     } catch (submitError: unknown) {
@@ -151,12 +205,12 @@ export function CreateIncidentForm({ onCancel, onCreated }: CreateIncidentFormPr
       <View style={styles.header}>
         <ThemedText type="subtitle">Registrar incidencia</ThemedText>
         <ThemedText type="small" themeColor="textSecondary">
-          Selecciona la ubicación en el mapa (OpenStreetMap con Leaflet) y completa los datos.
+          Selecciona la ubicación en el mapa o pulsa una parada de autobús (marcador azul) para asociarla.
         </ThemedText>
       </View>
 
       <ThemedView type="backgroundElement" style={styles.form}>
-        {/* Mapa Leaflet (Web) / react-native-maps (Nativo) */}
+        {/* Mapa con paradas EMT y punto de incidencia */}
         <View style={styles.mapContainer}>
           <IncidentMapView
             mapRef={mapRef}
@@ -164,7 +218,20 @@ export function CreateIncidentForm({ onCancel, onCreated }: CreateIncidentFormPr
             region={region}
             onPress={handleMapPress}
             selectedCoordinate={selectedCoordinate}
+            urbanAssets={urbanAssets}
+            onUrbanAssetPress={handleUrbanAssetPress}
+            selectedUrbanAssetId={selectedUrbanAsset?.id}
           />
+
+          {/* Indicador de carga de paradas */}
+          {loadingAssets ? (
+            <View style={styles.assetsLoadingBadge}>
+              <ActivityIndicator size="small" color="#2563eb" />
+              <ThemedText type="small" style={styles.assetsLoadingText}>
+                Cargando paradas EMT...
+              </ThemedText>
+            </View>
+          ) : null}
 
           {/* Botón flotante para obtener ubicación actual */}
           <Pressable
@@ -184,15 +251,43 @@ export function CreateIncidentForm({ onCancel, onCreated }: CreateIncidentFormPr
           </Pressable>
         </View>
 
+        {/* Tarjeta de activo urbano seleccionado si se ha pulsado una parada */}
+        {selectedUrbanAsset ? (
+          <View style={styles.selectedAssetCard}>
+            <View style={styles.selectedAssetInfo}>
+              <ThemedText type="smallBold" style={styles.selectedAssetBadge}>
+                🚌 Parada de Autobús Seleccionada
+              </ThemedText>
+              <ThemedText type="default" style={{ fontWeight: '600' }}>
+                {extractStopName(selectedUrbanAsset)}
+              </ThemedText>
+              {extractStopLines(selectedUrbanAsset) ? (
+                <ThemedText type="small" themeColor="textSecondary">
+                  Líneas: {extractStopLines(selectedUrbanAsset)}
+                </ThemedText>
+              ) : null}
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Desvincular parada"
+              onPress={handleDeselectAsset}
+              style={({ pressed }) => [styles.deselectButton, pressed && styles.pressed]}>
+              <ThemedText type="small" style={styles.deselectButtonText}>
+                Desvincular
+              </ThemedText>
+            </Pressable>
+          </View>
+        ) : null}
+
         {/* Indicador de coordenadas */}
         <View style={[styles.coordsCard, { borderColor: theme.backgroundSelected }]}>
           <ThemedText type="smallBold" themeColor="textSecondary">
-            Coordenadas en el mapa:
+            Coordenadas seleccionadas:
           </ThemedText>
           <ThemedText type="small" style={styles.coordsValue}>
             {selectedCoordinate
               ? `Lat: ${selectedCoordinate.latitude.toFixed(6)}, Lon: ${selectedCoordinate.longitude.toFixed(6)}`
-              : 'Toca en el mapa para marcar la ubicación'}
+              : 'Toca en el mapa o pulsa una parada de autobús'}
           </ThemedText>
         </View>
 
@@ -234,7 +329,7 @@ export function CreateIncidentForm({ onCancel, onCreated }: CreateIncidentFormPr
             accessibilityLabel="Título de la incidencia"
             value={titulo}
             onChangeText={setTitulo}
-            placeholder="Ej. Farola apagada en acera"
+            placeholder="Ej. Marquesina rota o banco deteriorado"
             placeholderTextColor={theme.textSecondary}
             maxLength={100}
             returnKeyType="next"
@@ -273,7 +368,7 @@ export function CreateIncidentForm({ onCancel, onCreated }: CreateIncidentFormPr
             accessibilityLabel="Categoría de la incidencia"
             value={categoria}
             onChangeText={setCategoria}
-            placeholder="Ej. Alumbrado, mobiliario, residuos..."
+            placeholder="Ej. Transporte, alumbrado, mobiliario..."
             placeholderTextColor={theme.textSecondary}
             maxLength={50}
             returnKeyType="done"
@@ -331,11 +426,34 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   mapContainer: {
-    height: 280,
+    height: 300,
     borderRadius: Spacing.two,
     overflow: 'hidden',
     position: 'relative',
     backgroundColor: '#e2e8f0',
+  },
+  assetsLoadingBadge: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  assetsLoadingText: {
+    fontSize: 11,
+    color: '#1e3a8a',
+    fontWeight: '500',
   },
   locationButton: {
     position: 'absolute',
@@ -355,6 +473,37 @@ const styles = StyleSheet.create({
   locationButtonText: {
     color: '#ffffff',
     fontSize: 12,
+  },
+  selectedAssetCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: Spacing.three,
+    borderRadius: Spacing.two,
+    backgroundColor: 'rgba(37, 99, 235, 0.08)',
+    borderWidth: 1,
+    borderColor: '#93c5fd',
+    gap: Spacing.two,
+  },
+  selectedAssetInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  selectedAssetBadge: {
+    color: '#1d4ed8',
+    fontSize: 11,
+    letterSpacing: 0.4,
+  },
+  deselectButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: Spacing.one,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+  },
+  deselectButtonText: {
+    color: '#b91c1c',
+    fontSize: 12,
+    fontWeight: '600',
   },
   coordsCard: {
     padding: Spacing.two,

@@ -1,3 +1,4 @@
+import type { UrbanAsset } from '@/components/incident-map-view.types';
 import { roundCoordinate } from '@/lib/coordinates';
 import { apiRequest } from '@/services/apiClient';
 
@@ -26,7 +27,9 @@ export interface Incident {
   categoria?: string | null;
   urbanAssetId?: number | null;
   urbanAssetTipo?: string | null;
+  urbanAsset?: UrbanAsset | null;
   localizacion?: string | null;
+  direccionNormalizada?: string | null;
   latitud?: number | null;
   longitud?: number | null;
   estado: string;
@@ -48,6 +51,8 @@ export interface CreateIncidentInput {
   prioridad?: IncidentPriority;
   latitud: number;
   longitud: number;
+  urbanAssetId?: number | null;
+  localizacion?: string | null;
 }
 
 /** Incidencias visibles para el usuario autenticado según su rol. */
