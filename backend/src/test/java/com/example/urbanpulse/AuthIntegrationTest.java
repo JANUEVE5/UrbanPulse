@@ -22,7 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Prueba de extremo a extremo con el servidor real y la base de datos de desarrollo (data.sql):
  * login con usuarios de prueba, permisos por rol y códigos de error reales (incluida la página /error).
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = "app.opendata.sync.enabled=false")
 class AuthIntegrationTest {
 
     private static final String DEV_PASSWORD = "urbanpulse-dev";

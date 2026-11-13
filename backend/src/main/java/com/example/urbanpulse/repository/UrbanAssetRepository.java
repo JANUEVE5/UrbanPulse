@@ -4,13 +4,13 @@ import com.example.urbanpulse.entity.UrbanAsset;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.util.List;
-import java.util.Optional;
 
 @Repository
 public interface UrbanAssetRepository extends JpaRepository<UrbanAsset, Integer> {
 
-    List<UrbanAsset> findByTipo(String tipo);
-
-    Optional<UrbanAsset> findByTipoAndNombre(String tipo, String nombre);
+    /** Activos dentro de un recuadro de latitud y longitud (usa el índice idx_urban_asset_posicion). */
+    List<UrbanAsset> findByLatitudBetweenAndLongitudBetween(
+            BigDecimal latitudMin, BigDecimal latitudMax, BigDecimal longitudMin, BigDecimal longitudMax);
 }
