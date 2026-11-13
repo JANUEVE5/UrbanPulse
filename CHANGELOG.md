@@ -87,6 +87,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ### Fixed
 
+- Crear una incidencia con «Mi ubicación» fallaba con «Revisa los datos»: el GPS devuelve coordenadas con más
+  de 6 decimales y la API las rechazaba. Ahora la app las redondea a 6 decimales antes de enviarlas (#47).
 - Error `_leaflet_pos` en consola al salir de una pantalla con mapa en web.
 
 ## [0.1.0] - Sprint 1
