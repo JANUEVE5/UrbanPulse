@@ -1,7 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 
 import type { IncidentMapViewProps, MapRegion } from './incident-map-view.types';
-import { extractStopName } from '@/services/urbanAssetService';
+import { Brand } from '@/constants/theme';
+import { urbanAssetType } from '@/constants/urban-assets';
 
 import {
   OSM_ATTRIBUTION,
@@ -93,59 +94,30 @@ export default function IncidentMapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [L]);
 
-  // 2. Renderizar marcadores de paradas de autobús (UrbanAssets)
+  // 2. Activos urbanos: un círculo pequeño con el icono de su tipo; el elegido, relleno de azul
   useEffect(() => {
-    const map = mapInstanceRef.current;
     const layerGroup = assetsLayerGroupRef.current;
-    if (!map || !L || !layerGroup) return;
+    if (!mapInstanceRef.current || !L || !layerGroup) return;
 
     layerGroup.clearLayers();
-
-    if (!urbanAssets || urbanAssets.length === 0) return;
-
-    urbanAssets.forEach((asset) => {
-      if (asset.latitud == null || asset.longitud == null) return;
-
-      const isSelected = selectedUrbanAssetId === asset.id;
-      const stopName = extractStopName(asset);
-
-      // Marcador azul distintivo para paradas EMT
-      const blueIcon = L.divIcon({
+    urbanAssets?.forEach((asset) => {
+      const selected = selectedUrbanAssetId === asset.id;
+      const size = selected ? 30 : 24;
+      const icon = L.divIcon({
         className: 'urban-asset-marker',
-        html: `
-          <div style="
-            background-color: ${isSelected ? '#1d4ed8' : '#2563eb'};
-            width: ${isSelected ? '20px' : '16px'};
-            height: ${isSelected ? '20px' : '16px'};
-            border-radius: 50%;
-            border: 2px solid #ffffff;
-            box-shadow: 0 0 5px rgba(0,0,0,0.4);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-          ">
-            <span style="font-size: 9px; color: #ffffff; font-weight: bold; line-height: 1;">🚌</span>
-          </div>
-        `,
-        iconSize: [isSelected ? 20 : 16, isSelected ? 20 : 16],
-        iconAnchor: [isSelected ? 10 : 8, isSelected ? 10 : 8],
-        popupAnchor: [0, -10],
+        // Solo el icono (fijo) va en el HTML; el nombre, que viene de una fuente externa, no se inyecta
+        html: `<div style="width:${size}px;height:${size}px;border-radius:50%;display:flex;align-items:center;
+          justify-content:center;font-size:${selected ? 16 : 13}px;cursor:pointer;
+          background:${selected ? Brand.blue : Brand.white};border:2px solid ${Brand.blue};
+          box-shadow:0 1px 4px rgba(0,0,0,0.35);">${urbanAssetType(asset.tipo).icon}</div>`,
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2],
       });
-
-      const marker = L.marker([asset.latitud, asset.longitud], { icon: blueIcon });
-      marker.bindPopup(`
-        <div style="font-family: sans-serif; font-size: 13px;">
-          <strong style="color: #2563eb;">Parada EMT</strong><br/>
-          <span>${stopName}</span><br/>
-          <small style="color: #64748b;">Pulsa para asociar a la incidencia</small>
-        </div>
-      `);
-
-      marker.on('click', () => {
-        onUrbanAssetPress?.(asset);
+      const marker = L.marker([asset.latitud, asset.longitud], {
+        icon,
+        alt: `${urbanAssetType(asset.tipo).label}: ${asset.nombre ?? ''}`,
       });
-
+      marker.on('click', () => onUrbanAssetPress?.(asset));
       layerGroup.addLayer(marker);
     });
   }, [L, urbanAssets, selectedUrbanAssetId, onUrbanAssetPress]);

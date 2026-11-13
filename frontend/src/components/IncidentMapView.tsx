@@ -3,7 +3,8 @@ import { Platform, StyleSheet } from 'react-native';
 import MapView, { Marker, UrlTile } from 'react-native-maps';
 
 import type { IncidentMapViewProps } from './incident-map-view.types';
-import { extractStopName } from '@/services/urbanAssetService';
+import { Brand } from '@/constants/theme';
+import { urbanAssetType } from '@/constants/urban-assets';
 
 /** Mapa de incidencias para Android/iOS (react-native-maps + teselas de OpenStreetMap). */
 export default function IncidentMapView({
@@ -32,26 +33,21 @@ export default function IncidentMapView({
         flipY={false}
       />
 
-      {/* Marcadores de paradas de autobús (color azul distintivo) */}
-      {urbanAssets?.map((asset) => {
-        if (asset.latitud == null || asset.longitud == null) return null;
-        const isSelected = selectedUrbanAssetId === asset.id;
-        const stopName = extractStopName(asset);
-        return (
-          <Marker
-            key={`urban-asset-${asset.id}`}
-            coordinate={{ latitude: asset.latitud, longitude: asset.longitud }}
-            title={stopName}
-            description="Parada de autobús (EMT Málaga)"
-            pinColor={isSelected ? '#1d4ed8' : '#3b82f6'}
-            onPress={(e) => {
-              // Evitar que el clic en la parada propague un clic genérico al mapa
-              e?.stopPropagation?.();
-              onUrbanAssetPress?.(asset);
-            }}
-          />
-        );
-      })}
+      {/* Activos urbanos cercanos: azul, y el elegido más oscuro */}
+      {urbanAssets?.map((asset) => (
+        <Marker
+          key={`urban-asset-${asset.id}`}
+          coordinate={{ latitude: asset.latitud, longitude: asset.longitud }}
+          title={`${urbanAssetType(asset.tipo).icon} ${urbanAssetType(asset.tipo).label}`}
+          description={asset.nombre ?? undefined}
+          pinColor={selectedUrbanAssetId === asset.id ? Brand.blue : 'azure'}
+          onPress={(e) => {
+            // Que pulsar el activo no cuente también como pulsar el mapa (movería el punto)
+            e.stopPropagation();
+            onUrbanAssetPress?.(asset);
+          }}
+        />
+      ))}
 
       {/* Marcador del punto de la incidencia (color rojo) */}
       {selectedCoordinate && (
