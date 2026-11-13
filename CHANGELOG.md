@@ -9,6 +9,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ### Added
 
+- Acceso rápido por rol en la pantalla de inicio de sesión, **solo en desarrollo**, para probar los permisos
+  de cada rol sin escribir credenciales. No se incluye en las versiones publicadas.
 - RF10/RF12: selección de prioridad (`Baja`, `Media` o `Alta`) al registrar una incidencia y controles de
   cambio de prioridad y estado en el detalle según el rol del usuario.
 - RF12: transiciones de estado con rechazo desde `Abierta` o `En revisión`, reapertura desde `Resuelta` o

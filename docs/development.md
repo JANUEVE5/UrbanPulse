@@ -141,6 +141,12 @@ desarrollo local):
 
 También puedes crear una cuenta de ciudadano con `POST /api/auth/register`.
 
+En la app, mientras se ejecuta en modo desarrollo (`npx expo start`), la pantalla de inicio de sesión muestra
+un panel **«Acceso rápido para pruebas»** con un botón por rol (ciudadanía, operador, técnico, analista y
+administración) que entra con estos usuarios sin escribir credenciales. Es temporal y solo existe en desarrollo:
+en las versiones publicadas no se incluye en el código (`src/components/dev-quick-login.tsx`, cargado solo si
+`__DEV__` es `true`).
+
 ## 5. Ejecutar el frontend
 
 ```bash
