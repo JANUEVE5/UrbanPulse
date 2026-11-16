@@ -410,8 +410,12 @@ function IncidentListView({
   signedOut,
 }: ListViewProps) {
   const theme = useTheme();
-  const [targetPage, setTargetPage] = useState('');
-  const displayedPage = pagination?.page;
+  const [pageInput, setPageInput] = useState<{ page: number; value: string } | null>(null);
+  const targetPage = pagination
+    ? pageInput?.page === pagination.page
+      ? pageInput.value
+      : String(pagination.page + 1)
+    : '';
   const targetPageNumber = /^\d+$/.test(targetPage) ? Number(targetPage) : null;
   const canGoToPage =
     !loading &&
@@ -421,9 +425,10 @@ function IncidentListView({
     targetPageNumber <= pagination.totalPages &&
     targetPageNumber !== pagination.page + 1;
 
-  useEffect(() => {
-    if (displayedPage !== undefined) setTargetPage(String(displayedPage + 1));
-  }, [displayedPage]);
+  const navigateToPage = (page: number) => {
+    setPageInput({ page, value: String(page + 1) });
+    onPageChange(page);
+  };
 
   return (
     <View style={styles.wrapper}>
@@ -603,7 +608,7 @@ function IncidentListView({
                 accessibilityLabel="Primera página"
                 accessibilityState={{ disabled: pagination.first || loading }}
                 disabled={pagination.first || loading}
-                onPress={() => onPageChange(0)}
+                onPress={() => navigateToPage(0)}
                 style={({ pressed }) => [
                   styles.paginationButton,
                   { backgroundColor: theme.background, borderColor: theme.border },
@@ -619,7 +624,7 @@ function IncidentListView({
                 accessibilityLabel="Página anterior"
                 accessibilityState={{ disabled: pagination.first || loading }}
                 disabled={pagination.first || loading}
-                onPress={() => onPageChange(pagination.page - 1)}
+                onPress={() => navigateToPage(pagination.page - 1)}
                 style={({ pressed }) => [
                   styles.paginationButton,
                   { backgroundColor: theme.background, borderColor: theme.border },
@@ -635,9 +640,12 @@ function IncidentListView({
                 accessibilityHint={`Escribe un número entre 1 y ${pagination.totalPages}`}
                 keyboardType="number-pad"
                 maxLength={String(pagination.totalPages).length}
-                onChangeText={(value) => setTargetPage(value.replace(/\D/g, ''))}
+                onChangeText={(value) => setPageInput({
+                  page: pagination.page,
+                  value: value.replace(/\D/g, ''),
+                })}
                 onSubmitEditing={() => {
-                  if (canGoToPage && targetPageNumber !== null) onPageChange(targetPageNumber - 1);
+                  if (canGoToPage && targetPageNumber !== null) navigateToPage(targetPageNumber - 1);
                 }}
                 placeholder="N.º"
                 placeholderTextColor={theme.textSecondary}
@@ -658,7 +666,7 @@ function IncidentListView({
                 accessibilityState={{ disabled: !canGoToPage || loading }}
                 disabled={!canGoToPage || loading}
                 onPress={() => {
-                  if (canGoToPage && targetPageNumber !== null) onPageChange(targetPageNumber - 1);
+                  if (canGoToPage && targetPageNumber !== null) navigateToPage(targetPageNumber - 1);
                 }}
                 style={({ pressed }) => [
                   styles.paginationButton,
@@ -675,7 +683,7 @@ function IncidentListView({
                 accessibilityLabel="Página siguiente"
                 accessibilityState={{ disabled: pagination.last || loading }}
                 disabled={pagination.last || loading}
-                onPress={() => onPageChange(pagination.page + 1)}
+                onPress={() => navigateToPage(pagination.page + 1)}
                 style={({ pressed }) => [
                   styles.paginationButton,
                   { backgroundColor: theme.background, borderColor: theme.border },
@@ -691,7 +699,7 @@ function IncidentListView({
                 accessibilityLabel="Última página"
                 accessibilityState={{ disabled: pagination.last || loading }}
                 disabled={pagination.last || loading}
-                onPress={() => onPageChange(pagination.totalPages - 1)}
+                onPress={() => navigateToPage(pagination.totalPages - 1)}
                 style={({ pressed }) => [
                   styles.paginationButton,
                   { backgroundColor: theme.background, borderColor: theme.border },
