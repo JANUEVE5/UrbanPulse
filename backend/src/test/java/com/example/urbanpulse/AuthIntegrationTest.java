@@ -63,19 +63,20 @@ class AuthIntegrationTest {
         String citizen = login("david.serrano@urbanpulse.es");
 
         assertEquals(401, send("GET", "/api/incidents", null, null).statusCode());
-        HttpResponse<String> incidents = send("GET", "/api/incidents", null, citizen);
+        String seededIncidentsPage = "/api/incidents?page=0&size=100&sort=id,asc";
+        HttpResponse<String> incidents = send("GET", seededIncidentsPage, null, citizen);
         assertEquals(200, incidents.statusCode(), incidents.body());
         assertTrue(incidents.body().contains("Papelera metálica desprendida"),
                 "El listado debe incluir incidencias creadas por David Serrano");
         assertFalse(incidents.body().contains("Farola rota con cableado expuesto"),
                 "El listado no debe incluir incidencias de otros usuarios");
-        HttpResponse<String> operatorIncidents = send("GET", "/api/incidents", null, operator);
+        HttpResponse<String> operatorIncidents = send("GET", seededIncidentsPage, null, operator);
         assertEquals(200, operatorIncidents.statusCode(), operatorIncidents.body());
         assertTrue(operatorIncidents.body().contains("Farola rota con cableado expuesto"),
                 "El operador debe ver incidencias de otros usuarios");
         assertTrue(operatorIncidents.body().contains("Papelera metálica desprendida"),
                 "El operador también debe ver las incidencias del ciudadano");
-        HttpResponse<String> adminIncidents = send("GET", "/api/incidents", null, admin);
+        HttpResponse<String> adminIncidents = send("GET", seededIncidentsPage, null, admin);
         assertEquals(200, adminIncidents.statusCode(), adminIncidents.body());
         assertTrue(adminIncidents.body().contains("Farola rota con cableado expuesto"),
                 "La administración debe ver incidencias de otros usuarios");

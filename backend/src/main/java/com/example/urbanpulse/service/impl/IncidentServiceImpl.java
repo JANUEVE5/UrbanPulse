@@ -18,6 +18,8 @@ import com.example.urbanpulse.repository.StatusChangeRepository;
 import com.example.urbanpulse.service.IncidentService;
 import com.example.urbanpulse.service.IncidentStatus;
 import com.example.urbanpulse.service.UrbanAssetService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,21 +27,17 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
 public class IncidentServiceImpl implements IncidentService {
 
     @Override
-    public List<IncidentDTO> getIncidents(Integer creatorId, Rol role) {
-        List<Incident> incidents = role == Rol.CITIZEN
-                ? incidentRepository.findByCreadorIdOrderByCreatedAtDesc(creatorId)
-                : incidentRepository.findAll();
-        return incidents
-                .stream()
-                .map(IncidentDTO::fromEntity)
-                .collect(Collectors.toList());
+    public Page<IncidentDTO> getIncidents(Integer creatorId, Rol role, Pageable pageable) {
+        Page<Incident> incidents = role == Rol.CITIZEN
+                ? incidentRepository.findByCreadorId(creatorId, pageable)
+                : incidentRepository.findAll(pageable);
+        return incidents.map(IncidentDTO::fromEntity);
     }
 
     private final IncidentRepository incidentRepository;

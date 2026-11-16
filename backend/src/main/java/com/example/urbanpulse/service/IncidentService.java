@@ -7,12 +7,13 @@ import com.example.urbanpulse.dto.CreateIncidentCommentRequest;
 import com.example.urbanpulse.dto.UpdateIncidentStatusRequest;
 import com.example.urbanpulse.dto.UpdateIncidentPriorityRequest;
 import com.example.urbanpulse.dto.UpdateIncidentUrbanAssetRequest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
-import java.util.List;
 import java.util.Optional;
 
 public interface IncidentService {
-    List<IncidentDTO> getIncidents(Integer creatorId, Rol role);
+    Page<IncidentDTO> getIncidents(Integer creatorId, Rol role, Pageable pageable);
     Optional<IncidentDTO> getIncidentById(Integer id);
     IncidentDTO createIncident(CreateIncidentRequest request, Integer creatorId);
     IncidentDTO updateIncidentStatus(Integer id, UpdateIncidentStatusRequest request, Integer actorId);

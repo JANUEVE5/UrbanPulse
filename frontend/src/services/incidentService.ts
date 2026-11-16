@@ -41,6 +41,16 @@ export interface Incident {
   comentarios?: IncidentComment[];
 }
 
+export interface IncidentPage {
+  content: Incident[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  first: boolean;
+  last: boolean;
+}
+
 export type IncidentPriority = 'Baja' | 'Media' | 'Alta';
 
 export interface CreateIncidentInput {
@@ -54,7 +64,36 @@ export interface CreateIncidentInput {
   localizacion?: string | null;
 }
 
-/** Incidencias visibles para el usuario autenticado según su rol. */
+/** Incidencias visibles para el usuario autenticado según su rol, paginadas por fecha descendente. */
+export function getIncidents(page = 0, size = 20): Promise<IncidentPage> {
+  return apiRequest<IncidentPage>(
+    `/incidents?page=${page}&size=${size}&sort=createdAt,desc`
+  );
+}
+
+/** Carga todas las páginas para mantener completos los marcadores del mapa. */
+export async function getAllIncidents(): Promise<Incident[]> {
+  const pageSize = 100;
+  const batchSize = 5;
+  const firstPage = await getIncidents(0, pageSize);
+  const incidents = [...firstPage.content];
+
+  for (
+    let firstPageInBatch = 1;
+    firstPageInBatch < firstPage.totalPages;
+    firstPageInBatch += batchSize
+  ) {
+    const pageNumbers = Array.from(
+      { length: Math.min(batchSize, firstPage.totalPages - firstPageInBatch) },
+      (_, index) => firstPageInBatch + index
+    );
+    const pages = await Promise.all(pageNumbers.map((page) => getIncidents(page, pageSize)));
+    incidents.push(...pages.flatMap((result) => result.content));
+  }
+
+  return incidents;
+}
+
 export interface UpdateIncidentPriorityInput {
   prioridad: IncidentPriority;
 }
@@ -62,11 +101,6 @@ export interface UpdateIncidentPriorityInput {
 export interface UpdateIncidentStatusInput {
   estado: string;
   motivo?: string;
-}
-
-/** Incidencias del usuario autenticado. */
-export function getIncidents(): Promise<Incident[]> {
-  return apiRequest<Incident[]>('/incidents');
 }
 
 /** Detalle de una incidencia con su historial (público). */
