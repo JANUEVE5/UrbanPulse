@@ -11,6 +11,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -22,6 +27,7 @@ import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -53,18 +59,37 @@ class IncidentControllerTest {
         dto.setNombreCreador("Ana García");
         dto.setCreatedAt(LocalDateTime.now());
 
-        when(incidentService.getIncidents(1, Rol.CITIZEN)).thenReturn(List.of(dto));
+        Page<IncidentDTO> incidents = new PageImpl<>(
+                List.of(dto),
+                PageRequest.of(1, 2, Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id"))),
+                3
+        );
+        when(incidentService.getIncidents(eq(1), eq(Rol.CITIZEN), org.mockito.ArgumentMatchers.any(Pageable.class)))
+                .thenReturn(incidents);
 
         mockMvc.perform(get("/api/incidents").with(citizenToken())
+                        .queryParam("page", "1")
+                        .queryParam("size", "2")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(1))
-                .andExpect(jsonPath("$[0].reporteCentral").value("El semáforo no funciona."))
-                .andExpect(jsonPath("$[0].localizacion").value("Plaza Mayor"))
-                .andExpect(jsonPath("$[0].estado").value("Abierta"))
-                .andExpect(jsonPath("$[0].prioridad").value("Alta"))
-                .andExpect(jsonPath("$[0].urbanAssetTipo").value("Semáforo"))
-                .andExpect(jsonPath("$[0].nombreCreador").value("Ana García"));
+                .andExpect(jsonPath("$.content[0].id").value(1))
+                .andExpect(jsonPath("$.content[0].reporteCentral").value("El semáforo no funciona."))
+                .andExpect(jsonPath("$.content[0].localizacion").value("Plaza Mayor"))
+                .andExpect(jsonPath("$.content[0].estado").value("Abierta"))
+                .andExpect(jsonPath("$.content[0].prioridad").value("Alta"))
+                .andExpect(jsonPath("$.content[0].urbanAssetTipo").value("Semáforo"))
+                .andExpect(jsonPath("$.content[0].nombreCreador").value("Ana García"))
+                .andExpect(jsonPath("$.page").value(1))
+                .andExpect(jsonPath("$.size").value(2))
+                .andExpect(jsonPath("$.totalElements").value(3))
+                .andExpect(jsonPath("$.totalPages").value(2))
+                .andExpect(jsonPath("$.last").value(true));
+        verify(incidentService).getIncidents(eq(1), eq(Rol.CITIZEN), org.mockito.ArgumentMatchers.argThat(
+                pageable -> pageable.getPageNumber() == 1
+                        && pageable.getPageSize() == 2
+                        && pageable.getSort().getOrderFor("createdAt").getDirection() == Sort.Direction.DESC
+                        && pageable.getSort().getOrderFor("id").getDirection() == Sort.Direction.DESC
+        ));
     }
 
     @Test
@@ -77,21 +102,42 @@ class IncidentControllerTest {
     @Test
     @DisplayName("GET /api/incidents devuelve todas las incidencias a un operador")
     void testGetAllIncidentsForOperator() throws Exception {
-        when(incidentService.getIncidents(2, Rol.OPERATOR)).thenReturn(List.of());
+        when(incidentService.getIncidents(
+                eq(2), eq(Rol.OPERATOR), org.mockito.ArgumentMatchers.any(Pageable.class)
+        )).thenReturn(Page.empty(PageRequest.of(0, 20)));
 
         mockMvc.perform(get("/api/incidents").with(operatorToken()))
                 .andExpect(status().isOk())
-                .andExpect(content().json("[]"));
+                .andExpect(jsonPath("$.content").isEmpty())
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(20))
+                .andExpect(jsonPath("$.totalElements").value(0));
     }
 
     @Test
     @DisplayName("GET /api/incidents/mine mantiene el filtro de ciudadano")
     void testGetMyIncidentsAlias() throws Exception {
-        when(incidentService.getIncidents(1, Rol.CITIZEN)).thenReturn(List.of());
+        when(incidentService.getIncidents(
+                eq(1), eq(Rol.CITIZEN), org.mockito.ArgumentMatchers.any(Pageable.class)
+        )).thenReturn(Page.empty(PageRequest.of(0, 20)));
 
         mockMvc.perform(get("/api/incidents/mine").with(citizenToken()))
                 .andExpect(status().isOk())
-                .andExpect(content().json("[]"));
+                .andExpect(jsonPath("$.content").isEmpty())
+                .andExpect(jsonPath("$.page").value(0));
+    }
+
+    @Test
+    @DisplayName("GET /api/incidents rechaza paginación y ordenación inválidas")
+    void testGetIncidentsRejectsInvalidPaginationParameters() throws Exception {
+        mockMvc.perform(get("/api/incidents").with(citizenToken()).queryParam("page", "-1"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get("/api/incidents").with(citizenToken()).queryParam("size", "101"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get("/api/incidents").with(citizenToken()).queryParam("sort", "password,asc"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

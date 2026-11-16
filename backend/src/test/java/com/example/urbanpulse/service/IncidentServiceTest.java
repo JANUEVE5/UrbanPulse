@@ -22,6 +22,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -81,13 +86,15 @@ class IncidentServiceTest {
     @Test
     @DisplayName("getIncidents filtra por creador para ciudadanos")
     void testGetCitizenIncidents() {
-        when(incidentRepository.findByCreadorIdOrderByCreatedAtDesc(1)).thenReturn(List.of(testIncident));
+        Pageable pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+        when(incidentRepository.findByCreadorId(1, pageable))
+                .thenReturn(new PageImpl<>(List.of(testIncident), pageable, 1));
 
-        List<IncidentDTO> result = incidentService.getIncidents(1, Rol.CITIZEN);
+        Page<IncidentDTO> result = incidentService.getIncidents(1, Rol.CITIZEN, pageable);
 
         assertNotNull(result);
-        assertEquals(1, result.size());
-        IncidentDTO dto = result.get(0);
+        assertEquals(1, result.getContent().size());
+        IncidentDTO dto = result.getContent().get(0);
         assertEquals(1, dto.getId());
         assertEquals("El semáforo no funciona.", dto.getReporteCentral());
         assertEquals("Plaza Mayor", dto.getLocalizacion());
@@ -97,38 +104,42 @@ class IncidentServiceTest {
         assertEquals("Semáforo", dto.getUrbanAssetTipo());
         assertEquals(1, dto.getIdCreador());
         assertEquals("Ana García", dto.getNombreCreador());
-        verify(incidentRepository).findByCreadorIdOrderByCreatedAtDesc(1);
-        verify(incidentRepository, never()).findAll();
+        verify(incidentRepository).findByCreadorId(1, pageable);
+        verify(incidentRepository, never()).findAll(pageable);
     }
 
     @Test
     @DisplayName("getIncidents devuelve todas las incidencias a roles no ciudadanos")
     void testGetAllIncidentsForOperator() {
+        Pageable pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
         Incident otherIncident = new Incident();
         otherIncident.setId(2);
         otherIncident.setReporteCentral("Incidencia de otro usuario.");
         otherIncident.setCreador(new AppUser(2, "Luis Pérez", "luis@example.com", "hash_2"));
-        when(incidentRepository.findAll()).thenReturn(List.of(testIncident, otherIncident));
+        when(incidentRepository.findAll(pageable))
+                .thenReturn(new PageImpl<>(List.of(testIncident, otherIncident), pageable, 2));
 
-        List<IncidentDTO> result = incidentService.getIncidents(1, Rol.OPERATOR);
+        Page<IncidentDTO> result = incidentService.getIncidents(1, Rol.OPERATOR, pageable);
 
-        assertEquals(2, result.size());
-        assertEquals(1, result.get(0).getIdCreador());
-        assertEquals(2, result.get(1).getIdCreador());
-        verify(incidentRepository).findAll();
-        verify(incidentRepository, never()).findByCreadorIdOrderByCreatedAtDesc(1);
+        assertEquals(2, result.getContent().size());
+        assertEquals(1, result.getContent().get(0).getIdCreador());
+        assertEquals(2, result.getContent().get(1).getIdCreador());
+        verify(incidentRepository).findAll(pageable);
+        verify(incidentRepository, never()).findByCreadorId(1, pageable);
     }
 
     @Test
     @DisplayName("getIncidents devuelve todas las incidencias a administración")
     void testGetAllIncidentsForAdmin() {
-        when(incidentRepository.findAll()).thenReturn(List.of(testIncident));
+        Pageable pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+        when(incidentRepository.findAll(pageable))
+                .thenReturn(new PageImpl<>(List.of(testIncident), pageable, 1));
 
-        List<IncidentDTO> result = incidentService.getIncidents(1, Rol.ADMIN);
+        Page<IncidentDTO> result = incidentService.getIncidents(1, Rol.ADMIN, pageable);
 
-        assertEquals(1, result.size());
-        verify(incidentRepository).findAll();
-        verify(incidentRepository, never()).findByCreadorIdOrderByCreatedAtDesc(1);
+        assertEquals(1, result.getContent().size());
+        verify(incidentRepository).findAll(pageable);
+        verify(incidentRepository, never()).findByCreadorId(1, pageable);
     }
 
     @Test

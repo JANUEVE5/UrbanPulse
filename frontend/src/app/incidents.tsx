@@ -24,9 +24,11 @@ import { useAuth } from '@/context/auth-context';
 import { useTheme } from '@/hooks/use-theme';
 import {
   getIncidentById,
+  getAllIncidents,
   getIncidents,
   Incident,
   IncidentPriority,
+  IncidentPage,
   addIncidentComment,
   updateIncidentPriority,
   updateIncidentStatus,
@@ -45,12 +47,20 @@ export default function IncidentsScreen() {
   const isWide = useIsWideLayout();
 
   // Estados para la lista
-  const [incidentList, setIncidentList] = useState<{ userId: number; incidents: Incident[] } | null>(null);
+  const [incidentList, setIncidentList] = useState<{
+    userId: number;
+    incidents: Incident[];
+    pagination: IncidentPage | null;
+  } | null>(null);
   const [loadingList, setLoadingList] = useState<boolean>(true);
   const [listError, setListError] = useState<{ userId: number; message: string } | null>(null);
   const listRequestId = useRef(0);
+  const pageIndexRef = useRef(0);
+  const [currentPage, setCurrentPage] = useState(0);
   const incidents =
     incidentList && incidentList.userId === user?.id ? incidentList.incidents : [];
+  const pagination =
+    incidentList && incidentList.userId === user?.id ? incidentList.pagination : null;
   const errorList =
     authStatus === 'signedOut'
       ? 'Inicia sesión para consultar tus incidencias.'
@@ -70,15 +80,20 @@ export default function IncidentsScreen() {
   const [updatingPriority, setUpdatingPriority] = useState(false);
   const [postingComment, setPostingComment] = useState(false);
 
-  const fetchIncidents = useCallback(async () => {
+  const fetchIncidents = useCallback(async (page = 0) => {
     if (authStatus !== 'signedIn' || user === null) return;
     const requestId = ++listRequestId.current;
     setLoadingList(true);
     setListError(null);
     try {
-      const data = await getIncidents();
+      const pagedResult = showList ? await getIncidents(page) : null;
+      const data = pagedResult ? pagedResult.content : await getAllIncidents();
       if (requestId === listRequestId.current) {
-        setIncidentList({ userId: user.id, incidents: data });
+        setIncidentList({ userId: user.id, incidents: data, pagination: pagedResult });
+        if (pagedResult) {
+          pageIndexRef.current = pagedResult.page;
+          setCurrentPage(pagedResult.page);
+        }
       }
     } catch (err: any) {
       if (requestId === listRequestId.current) {
@@ -90,7 +105,7 @@ export default function IncidentsScreen() {
     } finally {
       if (requestId === listRequestId.current) setLoadingList(false);
     }
-  }, [authStatus, user]);
+  }, [authStatus, showList, user]);
 
   const fetchDetail = useCallback(async (id: number) => {
     setLoadingDetail(true);
@@ -116,7 +131,7 @@ export default function IncidentsScreen() {
       if (selectedId) {
         return fetchDetail(selectedId);
       }
-      return fetchIncidents();
+      return fetchIncidents(pageIndexRef.current);
     });
   }, [selectedId, authStatus, fetchDetail, fetchIncidents]);
 
@@ -166,7 +181,14 @@ export default function IncidentsScreen() {
   const handleIncidentCreated = async () => {
     setCreatingIncident(false);
     setCreationSuccess(true);
-    await fetchIncidents();
+    pageIndexRef.current = 0;
+    await fetchIncidents(0);
+  };
+
+  const handlePageChange = (page: number) => {
+    if (page < 0 || page >= (pagination?.totalPages ?? 0) || page === currentPage) return;
+    pageIndexRef.current = page;
+    void fetchIncidents(page);
   };
 
   const handleStatusTransition = async (id: number, estado: string, motivo: string) => {
@@ -250,7 +272,7 @@ export default function IncidentsScreen() {
                       : 'No se pudieron cargar las incidencias.'}
                   </ThemedText>
                   {authStatus !== 'signedOut' && (
-                    <Pressable onPress={fetchIncidents} accessibilityRole="button">
+                    <Pressable onPress={() => void fetchIncidents()} accessibilityRole="button">
                       <ThemedText type="smallBold" style={{ color: theme.primary }}>
                         Reintentar
                       </ThemedText>
@@ -317,10 +339,12 @@ export default function IncidentsScreen() {
             // =================== VISTA LISTADO ===================
             <IncidentListView
               incidents={incidents}
+              pagination={pagination}
               loading={isLoadingList}
               error={errorList}
               onSelectIncident={handleSelectIncident}
-              onRetry={fetchIncidents}
+              onRetry={() => fetchIncidents(pageIndexRef.current)}
+              onPageChange={handlePageChange}
               onCreate={startCreating}
               creationSuccess={creationSuccess}
               signedOut={authStatus === 'signedOut'}
@@ -362,10 +386,12 @@ function ViewToggle({ showList, onToggle, top }: { showList: boolean; onToggle: 
 // -------------------------------------------------------------
 interface ListViewProps {
   incidents: Incident[];
+  pagination: IncidentPage | null;
   loading: boolean;
   error: string | null;
   onSelectIncident: (id: number) => void;
   onRetry: () => void;
+  onPageChange: (page: number) => void;
   onCreate: () => void;
   creationSuccess: boolean;
   signedOut: boolean;
@@ -373,14 +399,32 @@ interface ListViewProps {
 
 function IncidentListView({
   incidents,
+  pagination,
   loading,
   error,
   onSelectIncident,
   onRetry,
+  onPageChange,
   onCreate,
   creationSuccess,
   signedOut,
 }: ListViewProps) {
+  const theme = useTheme();
+  const [targetPage, setTargetPage] = useState('');
+  const displayedPage = pagination?.page;
+  const targetPageNumber = /^\d+$/.test(targetPage) ? Number(targetPage) : null;
+  const canGoToPage =
+    !loading &&
+    pagination !== null &&
+    targetPageNumber !== null &&
+    targetPageNumber >= 1 &&
+    targetPageNumber <= pagination.totalPages &&
+    targetPageNumber !== pagination.page + 1;
+
+  useEffect(() => {
+    if (displayedPage !== undefined) setTargetPage(String(displayedPage + 1));
+  }, [displayedPage]);
+
   return (
     <View style={styles.wrapper}>
       {/* Encabezado */}
@@ -541,6 +585,125 @@ function IncidentListView({
               </Pressable>
             );
           })}
+        </View>
+      )}
+
+      {!loading && !error && pagination && pagination.totalElements > 0 && (
+        <View style={styles.paginationBar}>
+          <ThemedText
+            type="small"
+            themeColor="textSecondary"
+            style={styles.paginationLabel}>
+            Página {pagination.page + 1} de {pagination.totalPages} · {pagination.totalElements} incidencias
+          </ThemedText>
+          {pagination.totalPages > 1 && (
+            <View style={styles.paginationControls}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Primera página"
+                accessibilityState={{ disabled: pagination.first || loading }}
+                disabled={pagination.first || loading}
+                onPress={() => onPageChange(0)}
+                style={({ pressed }) => [
+                  styles.paginationButton,
+                  { backgroundColor: theme.background, borderColor: theme.border },
+                  (pagination.first || loading) && styles.paginationButtonDisabled,
+                  pressed && styles.pressed,
+                ]}>
+                <ThemedText type="smallBold" style={{ color: theme.primary }}>
+                  «
+                </ThemedText>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Página anterior"
+                accessibilityState={{ disabled: pagination.first || loading }}
+                disabled={pagination.first || loading}
+                onPress={() => onPageChange(pagination.page - 1)}
+                style={({ pressed }) => [
+                  styles.paginationButton,
+                  { backgroundColor: theme.background, borderColor: theme.border },
+                  (pagination.first || loading) && styles.paginationButtonDisabled,
+                  pressed && styles.pressed,
+                ]}>
+                <ThemedText type="smallBold" style={{ color: theme.primary }}>
+                  ‹
+                </ThemedText>
+              </Pressable>
+              <TextInput
+                accessibilityLabel="Número de página"
+                accessibilityHint={`Escribe un número entre 1 y ${pagination.totalPages}`}
+                keyboardType="number-pad"
+                maxLength={String(pagination.totalPages).length}
+                onChangeText={(value) => setTargetPage(value.replace(/\D/g, ''))}
+                onSubmitEditing={() => {
+                  if (canGoToPage && targetPageNumber !== null) onPageChange(targetPageNumber - 1);
+                }}
+                placeholder="N.º"
+                placeholderTextColor={theme.textSecondary}
+                returnKeyType="go"
+                style={[
+                  styles.pageNumberInput,
+                  {
+                    backgroundColor: theme.background,
+                    borderColor: theme.border,
+                    color: theme.text,
+                  },
+                ]}
+                value={targetPage}
+              />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Ir a la página indicada"
+                accessibilityState={{ disabled: !canGoToPage || loading }}
+                disabled={!canGoToPage || loading}
+                onPress={() => {
+                  if (canGoToPage && targetPageNumber !== null) onPageChange(targetPageNumber - 1);
+                }}
+                style={({ pressed }) => [
+                  styles.paginationButton,
+                  { backgroundColor: theme.background, borderColor: theme.border },
+                  (!canGoToPage || loading) && styles.paginationButtonDisabled,
+                  pressed && styles.pressed,
+                ]}>
+                <ThemedText type="smallBold" style={{ color: theme.primary }}>
+                  Ir
+                </ThemedText>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Página siguiente"
+                accessibilityState={{ disabled: pagination.last || loading }}
+                disabled={pagination.last || loading}
+                onPress={() => onPageChange(pagination.page + 1)}
+                style={({ pressed }) => [
+                  styles.paginationButton,
+                  { backgroundColor: theme.background, borderColor: theme.border },
+                  (pagination.last || loading) && styles.paginationButtonDisabled,
+                  pressed && styles.pressed,
+                ]}>
+                <ThemedText type="smallBold" style={{ color: theme.primary }}>
+                  ›
+                </ThemedText>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Última página"
+                accessibilityState={{ disabled: pagination.last || loading }}
+                disabled={pagination.last || loading}
+                onPress={() => onPageChange(pagination.totalPages - 1)}
+                style={({ pressed }) => [
+                  styles.paginationButton,
+                  { backgroundColor: theme.background, borderColor: theme.border },
+                  (pagination.last || loading) && styles.paginationButtonDisabled,
+                  pressed && styles.pressed,
+                ]}>
+                <ThemedText type="smallBold" style={{ color: theme.primary }}>
+                  »
+                </ThemedText>
+              </Pressable>
+            </View>
+          )}
         </View>
       )}
     </View>
@@ -1265,6 +1428,42 @@ const styles = StyleSheet.create({
   listContainer: {
     gap: Spacing.three,
     paddingHorizontal: Spacing.two,
+  },
+  paginationBar: {
+    alignItems: 'center',
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.two,
+  },
+  paginationLabel: {
+    textAlign: 'center',
+  },
+  paginationControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.one,
+    flexWrap: 'wrap',
+  },
+  paginationButton: {
+    minHeight: 38,
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    borderRadius: Spacing.three,
+    borderWidth: StyleSheet.hairlineWidth,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pageNumberInput: {
+    width: 54,
+    minHeight: 38,
+    paddingVertical: Spacing.one,
+    paddingHorizontal: Spacing.one,
+    borderRadius: Spacing.three,
+    borderWidth: StyleSheet.hairlineWidth,
+    textAlign: 'center',
+  },
+  paginationButtonDisabled: {
+    opacity: 0.45,
   },
   cardPressable: {
     borderRadius: Spacing.three,
