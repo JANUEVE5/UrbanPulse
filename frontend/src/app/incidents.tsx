@@ -29,10 +29,25 @@ import {
   Incident,
   IncidentPriority,
   IncidentPage,
+  IncidentFilterOptions,
   addIncidentComment,
   updateIncidentPriority,
   updateIncidentStatus,
 } from '@/services/incidentService';
+
+export interface MapFilterState extends IncidentFilterOptions {
+  estado: string;
+  prioridad: string;
+  categoria: string;
+  limit: number | null;
+}
+
+export const DEFAULT_MAP_FILTERS: MapFilterState = {
+  estado: 'activas',
+  prioridad: 'todas',
+  categoria: 'todas',
+  limit: 50,
+};
 
 export default function IncidentsScreen() {
   const router = useRouter();
@@ -45,6 +60,10 @@ export default function IncidentsScreen() {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
   const isWide = useIsWideLayout();
+
+  // Filtros del mapa: por defecto incidencias activas y hasta 50 más recientes
+  const [mapFilters, setMapFilters] = useState<MapFilterState>(DEFAULT_MAP_FILTERS);
+  const [showFilterModal, setShowFilterModal] = useState(false);
 
   // Estados para la lista
   const [incidentList, setIncidentList] = useState<{
@@ -80,14 +99,14 @@ export default function IncidentsScreen() {
   const [updatingPriority, setUpdatingPriority] = useState(false);
   const [postingComment, setPostingComment] = useState(false);
 
-  const fetchIncidents = useCallback(async (page = 0) => {
+  const fetchIncidents = useCallback(async (page = 0, filtersToApply: MapFilterState = mapFilters) => {
     if (authStatus !== 'signedIn' || user === null) return;
     const requestId = ++listRequestId.current;
     setLoadingList(true);
     setListError(null);
     try {
       const pagedResult = showList ? await getIncidents(page) : null;
-      const data = pagedResult ? pagedResult.content : await getAllIncidents();
+      const data = pagedResult ? pagedResult.content : await getAllIncidents(filtersToApply);
       if (requestId === listRequestId.current) {
         setIncidentList({ userId: user.id, incidents: data, pagination: pagedResult });
         if (pagedResult) {
@@ -105,7 +124,18 @@ export default function IncidentsScreen() {
     } finally {
       if (requestId === listRequestId.current) setLoadingList(false);
     }
-  }, [authStatus, showList, user]);
+  }, [authStatus, mapFilters, showList, user]);
+
+  const handleUpdateFilter = <K extends keyof MapFilterState>(key: K, value: MapFilterState[K]) => {
+    const updated = { ...mapFilters, [key]: value };
+    setMapFilters(updated);
+    void fetchIncidents(0, updated);
+  };
+
+  const handleResetFilters = () => {
+    setMapFilters(DEFAULT_MAP_FILTERS);
+    void fetchIncidents(0, DEFAULT_MAP_FILTERS);
+  };
 
   const fetchDetail = useCallback(async (id: number) => {
     setLoadingDetail(true);
@@ -289,6 +319,249 @@ export default function IncidentsScreen() {
         )}
 
         <ViewToggle showList={false} onToggle={toggleView} top={insets.top + Spacing.three} />
+
+        <View
+          style={[
+            styles.mapFilterContainer,
+            { top: insets.top + (isWide ? Spacing.three + 52 : FloatingMenuInset + 48) },
+          ]}
+          pointerEvents="box-none">
+          <View style={[styles.mapFilterBar, { backgroundColor: theme.background, borderColor: theme.border }]}>
+            {(
+              [
+                { key: 'activas', label: 'Activas' },
+                { key: 'resueltas', label: 'Resueltas' },
+                { key: 'todas', label: 'Todas' },
+              ] as const
+            ).map((filter) => {
+              const isSelected = mapFilters.estado === filter.key;
+              return (
+                <Pressable
+                  key={filter.key}
+                  onPress={() => handleUpdateFilter('estado', filter.key)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Filtrar incidencias por ${filter.label.toLowerCase()}`}
+                  accessibilityState={{ selected: isSelected }}
+                  style={[
+                    styles.filterChip,
+                    isSelected && { backgroundColor: theme.primary },
+                  ]}>
+                  <ThemedText
+                    type="smallBold"
+                    style={{
+                      color: isSelected ? '#ffffff' : theme.textSecondary,
+                    }}>
+                    {filter.label}
+                  </ThemedText>
+                </Pressable>
+              );
+            })}
+
+            <Pressable
+              onPress={() => setShowFilterModal(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Abrir todos los filtros del mapa"
+              style={[
+                styles.filterChip,
+                (mapFilters.prioridad !== 'todas' || mapFilters.categoria !== 'todas' || mapFilters.limit !== 50) && {
+                  backgroundColor: Brand.orange,
+                },
+              ]}>
+              <ThemedText
+                type="smallBold"
+                style={{
+                  color:
+                    mapFilters.prioridad !== 'todas' || mapFilters.categoria !== 'todas' || mapFilters.limit !== 50
+                      ? '#ffffff'
+                      : theme.primary,
+                }}>
+                ⚙ Filtros{mapFilters.limit ? ` (${mapFilters.limit})` : ''}
+              </ThemedText>
+            </Pressable>
+          </View>
+        </View>
+
+        {showFilterModal && (
+          <View style={styles.modalOverlay}>
+            <Pressable
+              style={styles.modalBackdrop}
+              onPress={() => setShowFilterModal(false)}
+              accessibilityLabel="Cerrar filtros"
+            />
+            <ThemedView
+              type="background"
+              style={[
+                styles.filterModalCard,
+                {
+                  borderColor: theme.border,
+                  maxHeight: '80%',
+                  marginTop: insets.top + Spacing.four,
+                  marginBottom: insets.bottom + Spacing.four,
+                },
+              ]}>
+              <View style={styles.filterModalHeader}>
+                <ThemedText type="subtitle">Filtros del mapa</ThemedText>
+                <Pressable
+                  onPress={() => setShowFilterModal(false)}
+                  style={styles.modalCloseButton}
+                  accessibilityRole="button"
+                  accessibilityLabel="Cerrar ventana de filtros">
+                  <ThemedText type="smallBold" style={{ color: theme.textSecondary }}>✕</ThemedText>
+                </Pressable>
+              </View>
+
+              <ScrollView style={styles.filterModalContent} showsVerticalScrollIndicator={false}>
+                {/* 1. Límite ordenado a recientes */}
+                <ThemedText type="smallBold" style={styles.filterSectionTitle}>
+                  Mostrar más recientes:
+                </ThemedText>
+                <View style={styles.filterChipsRow}>
+                  {([
+                    { value: 20, label: '20' },
+                    { value: 50, label: '50 (defecto)' },
+                    { value: 100, label: '100' },
+                    { value: null, label: 'Todas' },
+                  ] as const).map((opt) => {
+                    const isSel = mapFilters.limit === opt.value;
+                    return (
+                      <Pressable
+                        key={String(opt.value)}
+                        onPress={() => handleUpdateFilter('limit', opt.value)}
+                        style={[
+                          styles.filterChipItem,
+                          { borderColor: theme.border },
+                          isSel && { backgroundColor: theme.primary, borderColor: theme.primary },
+                        ]}>
+                        <ThemedText
+                          type="small"
+                          style={{ color: isSel ? '#ffffff' : theme.text }}>
+                          {opt.label}
+                        </ThemedText>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                {/* 2. Estado */}
+                <ThemedText type="smallBold" style={styles.filterSectionTitle}>
+                  Estado:
+                </ThemedText>
+                <View style={styles.filterChipsRow}>
+                  {[
+                    { key: 'activas', label: 'Activas (defecto)' },
+                    { key: 'Abierta', label: 'Abierta' },
+                    { key: 'En revisión', label: 'En revisión' },
+                    { key: 'resueltas', label: 'Resueltas' },
+                    { key: 'Cerrada', label: 'Cerrada' },
+                    { key: 'Rechazada', label: 'Rechazada' },
+                    { key: 'todas', label: 'Todos los estados' },
+                  ].map((opt) => {
+                    const isSel = mapFilters.estado === opt.key;
+                    return (
+                      <Pressable
+                        key={opt.key}
+                        onPress={() => handleUpdateFilter('estado', opt.key)}
+                        style={[
+                          styles.filterChipItem,
+                          { borderColor: theme.border },
+                          isSel && { backgroundColor: theme.primary, borderColor: theme.primary },
+                        ]}>
+                        <ThemedText
+                          type="small"
+                          style={{ color: isSel ? '#ffffff' : theme.text }}>
+                          {opt.label}
+                        </ThemedText>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                {/* 3. Prioridad */}
+                <ThemedText type="smallBold" style={styles.filterSectionTitle}>
+                  Prioridad:
+                </ThemedText>
+                <View style={styles.filterChipsRow}>
+                  {[
+                    { key: 'todas', label: 'Todas' },
+                    { key: 'Alta', label: 'Alta' },
+                    { key: 'Media', label: 'Media' },
+                    { key: 'Baja', label: 'Baja' },
+                  ].map((opt) => {
+                    const isSel = mapFilters.prioridad === opt.key;
+                    return (
+                      <Pressable
+                        key={opt.key}
+                        onPress={() => handleUpdateFilter('prioridad', opt.key)}
+                        style={[
+                          styles.filterChipItem,
+                          { borderColor: theme.border },
+                          isSel && { backgroundColor: theme.primary, borderColor: theme.primary },
+                        ]}>
+                        <ThemedText
+                          type="small"
+                          style={{ color: isSel ? '#ffffff' : theme.text }}>
+                          {opt.label}
+                        </ThemedText>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                {/* 4. Categoría */}
+                <ThemedText type="smallBold" style={styles.filterSectionTitle}>
+                  Categoría:
+                </ThemedText>
+                <View style={styles.filterChipsRow}>
+                  {[
+                    { key: 'todas', label: 'Todas' },
+                    { key: 'Alumbrado', label: 'Alumbrado' },
+                    { key: 'Limpieza', label: 'Limpieza' },
+                    { key: 'Mobiliario', label: 'Mobiliario' },
+                    { key: 'Tráfico', label: 'Tráfico' },
+                    { key: 'Zonas verdes', label: 'Zonas verdes' },
+                  ].map((opt) => {
+                    const isSel = mapFilters.categoria === opt.key;
+                    return (
+                      <Pressable
+                        key={opt.key}
+                        onPress={() => handleUpdateFilter('categoria', opt.key)}
+                        style={[
+                          styles.filterChipItem,
+                          { borderColor: theme.border },
+                          isSel && { backgroundColor: theme.primary, borderColor: theme.primary },
+                        ]}>
+                        <ThemedText
+                          type="small"
+                          style={{ color: isSel ? '#ffffff' : theme.text }}>
+                          {opt.label}
+                        </ThemedText>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+
+              <View style={[styles.filterModalFooter, { borderTopColor: theme.border }]}>
+                <Pressable
+                  onPress={handleResetFilters}
+                  accessibilityRole="button"
+                  style={styles.modalResetButton}>
+                  <ThemedText type="smallBold" style={{ color: theme.primary }}>
+                    Restablecer
+                  </ThemedText>
+                </Pressable>
+                <Pressable
+                  onPress={() => setShowFilterModal(false)}
+                  accessibilityRole="button"
+                  style={[styles.modalApplyButton, { backgroundColor: theme.primary }]}>
+                  <ThemedText type="smallBold" style={{ color: '#ffffff' }}>
+                    Listo
+                  </ThemedText>
+                </Pressable>
+              </View>
+            </ThemedView>
+          </View>
+        )}
 
         <Pressable
           onPress={startCreating}
@@ -1306,6 +1579,113 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
+  },
+  mapFilterContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 9,
+  },
+  mapFilterBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Spacing.one,
+    borderRadius: 24,
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: Spacing.one,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  filterChip: {
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.one,
+    borderRadius: 18,
+    minHeight: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.three,
+  },
+  modalBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+  },
+  filterModalCard: {
+    width: '100%',
+    maxWidth: 480,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+  },
+  filterModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.four,
+    paddingVertical: Spacing.three,
+  },
+  modalCloseButton: {
+    padding: Spacing.two,
+  },
+  filterModalContent: {
+    paddingHorizontal: Spacing.four,
+  },
+  filterSectionTitle: {
+    marginTop: Spacing.two,
+    marginBottom: Spacing.one,
+  },
+  filterChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+    marginBottom: Spacing.three,
+  },
+  filterChipItem: {
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterModalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.four,
+    paddingVertical: Spacing.three,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  modalResetButton: {
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.three,
+  },
+  modalApplyButton: {
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.four,
+    borderRadius: 20,
   },
   fab: {
     position: 'absolute',
