@@ -1,0 +1,41 @@
+# Infraestructura de observabilidad para las pruebas de carga (ADR-018). Solo para el portátil de pruebas.
+#   docker compose -f perf/observabilidad/compose.yaml up -d
+# - Prometheus (http://localhost:9090): lee /actuator/prometheus del backend cada 5 s y recibe las
+#   métricas de k6 por Remote Write (k6 run -o experimental-prometheus-rw).
+# - Grafana (http://localhost:3000, acceso anónimo de solo lectura + admin/admin): panel "UrbanPulse — k6 + backend".
+services:
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.enable-remote-write-receiver
+      - --storage.tsdb.retention.time=30d
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    # Permite llegar al backend que corre en el host (Linux necesita host-gateway)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:12.1.1
+    depends_on:
+      - prometheus
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/urbanpulse.json
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    restart: unless-stopped
+
+volumes:
+  prometheus-data:
+  grafana-data:
