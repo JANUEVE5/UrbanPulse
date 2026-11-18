@@ -143,6 +143,48 @@ class IncidentServiceTest {
     }
 
     @Test
+    @DisplayName("getIncidents con filtro de estados para ciudadano filtra por creador y estados")
+    void testGetIncidentsWithStatusFilterForCitizen() {
+        Pageable pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+        List<String> estados = List.of("Abierta", "En revisión");
+        when(incidentRepository.findByCreadorIdAndEstadoIn(1, estados, pageable))
+                .thenReturn(new PageImpl<>(List.of(testIncident), pageable, 1));
+
+        Page<IncidentDTO> result = incidentService.getIncidents(1, Rol.CITIZEN, estados, pageable);
+
+        assertEquals(1, result.getContent().size());
+        verify(incidentRepository).findByCreadorIdAndEstadoIn(1, estados, pageable);
+    }
+
+    @Test
+    @DisplayName("getIncidents con filtro de estados para operador filtra por estados")
+    void testGetIncidentsWithStatusFilterForOperator() {
+        Pageable pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+        List<String> estados = List.of("Abierta", "En revisión");
+        when(incidentRepository.findByEstadoIn(estados, pageable))
+                .thenReturn(new PageImpl<>(List.of(testIncident), pageable, 1));
+
+        Page<IncidentDTO> result = incidentService.getIncidents(1, Rol.OPERATOR, estados, pageable);
+
+        assertEquals(1, result.getContent().size());
+        verify(incidentRepository).findByEstadoIn(estados, pageable);
+    }
+
+    @Test
+    @DisplayName("getIncidents con filtros de prioridad y categoria utiliza Specification")
+    void testGetIncidentsWithPriorityAndCategorySpecification() {
+        Pageable pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+        List<String> estados = List.of("Abierta");
+        when(incidentRepository.findAll(org.mockito.ArgumentMatchers.<org.springframework.data.jpa.domain.Specification<Incident>>any(), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(testIncident), pageable, 1));
+
+        Page<IncidentDTO> result = incidentService.getIncidents(1, Rol.CITIZEN, estados, "Alta", "Alumbrado", pageable);
+
+        assertEquals(1, result.getContent().size());
+        verify(incidentRepository).findAll(org.mockito.ArgumentMatchers.<org.springframework.data.jpa.domain.Specification<Incident>>any(), eq(pageable));
+    }
+
+    @Test
     @DisplayName("getIncidentById retorna la incidencia y su historial de cambios si existe")
     void testGetIncidentByIdFound() {
         AppUser actor = new AppUser(2, "Luis Pérez", "luis@example.com", "hash_2");

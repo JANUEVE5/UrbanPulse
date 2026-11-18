@@ -141,6 +141,66 @@ class IncidentControllerTest {
     }
 
     @Test
+    @DisplayName("GET /api/incidents con filtro de estado activas filtra por estados activos")
+    void testGetIncidentsFilterActivas() throws Exception {
+        when(incidentService.getIncidents(
+                eq(1), eq(Rol.CITIZEN),
+                eq(java.util.List.of("Abierta", "En revisión", "Reabierta")),
+                org.mockito.ArgumentMatchers.any(Pageable.class)
+        )).thenReturn(Page.empty(PageRequest.of(0, 20)));
+
+        mockMvc.perform(get("/api/incidents").with(citizenToken()).queryParam("estado", "activas"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isEmpty());
+
+        verify(incidentService).getIncidents(
+                eq(1), eq(Rol.CITIZEN),
+                eq(java.util.List.of("Abierta", "En revisión", "Reabierta")),
+                org.mockito.ArgumentMatchers.any(Pageable.class)
+        );
+    }
+
+    @Test
+    @DisplayName("GET /api/incidents con estado no válido devuelve 400 Bad Request")
+    void testGetIncidentsFilterInvalidStatus() throws Exception {
+        mockMvc.perform(get("/api/incidents").with(citizenToken()).queryParam("estado", "desconocido"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("GET /api/incidents con filtros de prioridad y categoria delega al servicio")
+    void testGetIncidentsWithPriorityAndCategory() throws Exception {
+        when(incidentService.getIncidents(
+                eq(1), eq(Rol.CITIZEN),
+                eq(java.util.List.of("Abierta", "En revisión", "Reabierta")),
+                eq("Alta"),
+                eq("Alumbrado"),
+                org.mockito.ArgumentMatchers.any(Pageable.class)
+        )).thenReturn(Page.empty(PageRequest.of(0, 20)));
+
+        mockMvc.perform(get("/api/incidents").with(citizenToken())
+                        .queryParam("estado", "activas")
+                        .queryParam("prioridad", "Alta")
+                        .queryParam("categoria", "Alumbrado"))
+                .andExpect(status().isOk());
+
+        verify(incidentService).getIncidents(
+                eq(1), eq(Rol.CITIZEN),
+                eq(java.util.List.of("Abierta", "En revisión", "Reabierta")),
+                eq("Alta"),
+                eq("Alumbrado"),
+                org.mockito.ArgumentMatchers.any(Pageable.class)
+        );
+    }
+
+    @Test
+    @DisplayName("GET /api/incidents con prioridad no válida devuelve 400 Bad Request")
+    void testGetIncidentsWithInvalidPriority() throws Exception {
+        mockMvc.perform(get("/api/incidents").with(citizenToken()).queryParam("prioridad", "Urgente"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     @DisplayName("GET /api/incidents/{id} debe retornar 200 OK con el detalle de la incidencia")
     void testGetIncidentByIdFound() throws Exception {
         IncidentDTO dto = new IncidentDTO();

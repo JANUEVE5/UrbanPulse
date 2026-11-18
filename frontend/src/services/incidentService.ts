@@ -64,34 +64,65 @@ export interface CreateIncidentInput {
   localizacion?: string | null;
 }
 
-/** Incidencias visibles para el usuario autenticado según su rol, paginadas por fecha descendente. */
-export function getIncidents(page = 0, size = 20): Promise<IncidentPage> {
-  return apiRequest<IncidentPage>(
-    `/incidents?page=${page}&size=${size}&sort=createdAt,desc`
-  );
+export interface IncidentFilterOptions {
+  estado?: string;
+  prioridad?: string;
+  categoria?: string;
+  limit?: number | null;
 }
 
-/** Carga todas las páginas para mantener completos los marcadores del mapa. */
-export async function getAllIncidents(): Promise<Incident[]> {
-  const pageSize = 100;
+/** Incidencias visibles para el usuario autenticado según su rol, paginadas por fecha descendente. */
+export function getIncidents(
+  page = 0,
+  size = 20,
+  filters?: IncidentFilterOptions | string
+): Promise<IncidentPage> {
+  const options: IncidentFilterOptions = typeof filters === 'string' ? { estado: filters } : (filters || {});
+  let query = `/incidents?page=${page}&size=${size}&sort=createdAt,desc`;
+  if (options.estado && options.estado !== 'todas') {
+    query += `&estado=${encodeURIComponent(options.estado)}`;
+  }
+  if (options.prioridad && options.prioridad !== 'todas') {
+    query += `&prioridad=${encodeURIComponent(options.prioridad)}`;
+  }
+  if (options.categoria && options.categoria !== 'todas') {
+    query += `&categoria=${encodeURIComponent(options.categoria)}`;
+  }
+  return apiRequest<IncidentPage>(query);
+}
+
+/** Carga las incidencias para el mapa ordenadas por fecha descendente respetando filtros y límite de elementos. */
+export async function getAllIncidents(filters?: IncidentFilterOptions | string): Promise<Incident[]> {
+  const options: IncidentFilterOptions = typeof filters === 'string' ? { estado: filters } : (filters || {});
+  const targetLimit = options.limit ?? null;
+
+  const pageSize = targetLimit && targetLimit <= 100 ? targetLimit : 100;
   const batchSize = 5;
-  const firstPage = await getIncidents(0, pageSize);
+  const firstPage = await getIncidents(0, pageSize, options);
   const incidents = [...firstPage.content];
+
+  if (targetLimit && incidents.length >= targetLimit) {
+    return incidents.slice(0, targetLimit);
+  }
 
   for (
     let firstPageInBatch = 1;
     firstPageInBatch < firstPage.totalPages;
     firstPageInBatch += batchSize
   ) {
+    if (targetLimit && incidents.length >= targetLimit) break;
     const pageNumbers = Array.from(
       { length: Math.min(batchSize, firstPage.totalPages - firstPageInBatch) },
       (_, index) => firstPageInBatch + index
     );
-    const pages = await Promise.all(pageNumbers.map((page) => getIncidents(page, pageSize)));
+    const pages = await Promise.all(pageNumbers.map((page) => getIncidents(page, pageSize, options)));
     incidents.push(...pages.flatMap((result) => result.content));
+    if (targetLimit && incidents.length >= targetLimit) {
+      return incidents.slice(0, targetLimit);
+    }
   }
 
-  return incidents;
+  return targetLimit ? incidents.slice(0, targetLimit) : incidents;
 }
 
 export interface UpdateIncidentPriorityInput {

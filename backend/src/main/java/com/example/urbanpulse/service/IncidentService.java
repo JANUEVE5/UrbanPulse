@@ -10,10 +10,24 @@ import com.example.urbanpulse.dto.UpdateIncidentUrbanAssetRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface IncidentService {
-    Page<IncidentDTO> getIncidents(Integer creatorId, Rol role, Pageable pageable);
+    Page<IncidentDTO> getIncidents(
+            Integer creatorId,
+            Rol role,
+            List<String> estados,
+            String prioridad,
+            String categoria,
+            Pageable pageable
+    );
+    default Page<IncidentDTO> getIncidents(Integer creatorId, Rol role, List<String> estados, Pageable pageable) {
+        return getIncidents(creatorId, role, estados, null, null, pageable);
+    }
+    default Page<IncidentDTO> getIncidents(Integer creatorId, Rol role, Pageable pageable) {
+        return getIncidents(creatorId, role, null, null, null, pageable);
+    }
     Optional<IncidentDTO> getIncidentById(Integer id);
     IncidentDTO createIncident(CreateIncidentRequest request, Integer creatorId);
     IncidentDTO updateIncidentStatus(Integer id, UpdateIncidentStatusRequest request, Integer actorId);
