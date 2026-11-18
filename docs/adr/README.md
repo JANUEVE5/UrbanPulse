@@ -72,5 +72,6 @@ Utilizar Redis mediante Cache-Aside.
 | [014](014-listado-de-incidencias-segun-rol.md) | Mostrar incidencias según el rol autenticado | Accepted | RF06, RF02 |
 | [015](015-sincronizacion-activos-open-data.md) | Sincronización programada de activos urbanos desde Open Data Málaga | Proposed | RF22, RF26 |
 | [016](016-paginacion-listado-incidencias.md) | Paginar el listado de incidencias sin limitar el mapa | Accepted | RF06, RF07 |
+| [017](017-filtrado-incidencias-por-estado-mapa.md) | Filtrado multicriterio de incidencias en la API y límite por defecto en el mapa | Accepted | RF07, RF08 |
 
 Los ADR en estado `Proposed` están pendientes de que el equipo los revise y los acepte o rechace.

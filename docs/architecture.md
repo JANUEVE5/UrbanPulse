@@ -163,7 +163,7 @@ flowchart LR
 | `POST` | `/api/auth/register` | Público | Crea una cuenta de ciudadano y devuelve su token. | RF01 |
 | `POST` | `/api/auth/login` | Público | Inicia sesión y devuelve un JWT. | RF01 |
 | `GET` | `/api/auth/me` | Autenticado | Datos y rol del usuario del token. | RF01 |
-| `GET` | `/api/incidents` | Autenticado | Listado paginado por fecha descendente; `CITIZEN` ve sus incidencias y el resto de roles ve todas. El mapa recorre las páginas y la vista de lista solicita una página cada vez ([ADR-016](adr/016-paginacion-listado-incidencias.md)). | RF06, RF07 |
+| `GET` | `/api/incidents` | Autenticado | Listado paginado por fecha descendente con filtros opcionales (`?estado=`, `?prioridad=`, `?categoria=`); `CITIZEN` ve sus incidencias y el resto de roles ve todas. El mapa carga por defecto las 50 incidencias activas más recientes ([ADR-016](adr/016-paginacion-listado-incidencias.md), [ADR-017](adr/017-filtrado-incidencias-por-estado-mapa.md)). | RF06, RF07, RF08 |
 | `GET` | `/api/incidents/mine` | Autenticado | Alias del listado paginado con la misma visibilidad según rol. | RF06, RF07 |
 | `GET` | `/api/incidents/{id}` | Público | Detalle con su historial de cambios de estado y comentarios. | RF06, RF12 |
 | `POST` | `/api/incidents` | Autenticado | Registro de una incidencia a nombre del usuario del token. | RF03, RF04 |
@@ -342,3 +342,5 @@ El registro completo está en [`docs/adr/`](adr/README.md).
 | [013](adr/013-listado-de-incidencias-propias.md) | Listado de incidencias propias en el mapa y la vista de lista | Superseded by ADR-014 |
 | [014](adr/014-listado-de-incidencias-segun-rol.md) | Mostrar incidencias según el rol autenticado | Accepted |
 | [015](adr/015-sincronizacion-activos-open-data.md) | Sincronización programada de activos urbanos desde Open Data | Proposed |
+| [016](adr/016-paginacion-listado-incidencias.md) | Paginar el listado de incidencias sin limitar el mapa | Accepted |
+| [017](adr/017-filtrado-incidencias-por-estado-mapa.md) | Filtrado multicriterio de incidencias en la API y límite por defecto en el mapa | Accepted |
