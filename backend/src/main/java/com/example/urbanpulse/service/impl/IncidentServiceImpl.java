@@ -20,11 +20,14 @@ import com.example.urbanpulse.service.IncidentStatus;
 import com.example.urbanpulse.service.UrbanAssetService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import jakarta.persistence.criteria.Predicate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -33,10 +36,47 @@ import java.util.Optional;
 public class IncidentServiceImpl implements IncidentService {
 
     @Override
-    public Page<IncidentDTO> getIncidents(Integer creatorId, Rol role, Pageable pageable) {
-        Page<Incident> incidents = role == Rol.CITIZEN
-                ? incidentRepository.findByCreadorId(creatorId, pageable)
-                : incidentRepository.findAll(pageable);
+    public Page<IncidentDTO> getIncidents(
+            Integer creatorId,
+            Rol role,
+            List<String> estados,
+            String prioridad,
+            String categoria,
+            Pageable pageable
+    ) {
+        boolean hasExtraFilters = (prioridad != null && !prioridad.isBlank() && !prioridad.equalsIgnoreCase("todas"))
+                || (categoria != null && !categoria.isBlank() && !categoria.equalsIgnoreCase("todas"));
+
+        Page<Incident> incidents;
+        if (!hasExtraFilters) {
+            if (estados == null || estados.isEmpty()) {
+                incidents = role == Rol.CITIZEN
+                        ? incidentRepository.findByCreadorId(creatorId, pageable)
+                        : incidentRepository.findAll(pageable);
+            } else {
+                incidents = role == Rol.CITIZEN
+                        ? incidentRepository.findByCreadorIdAndEstadoIn(creatorId, estados, pageable)
+                        : incidentRepository.findByEstadoIn(estados, pageable);
+            }
+        } else {
+            Specification<Incident> spec = (root, query, cb) -> {
+                List<Predicate> predicates = new ArrayList<>();
+                if (role == Rol.CITIZEN && creatorId != null) {
+                    predicates.add(cb.equal(root.get("creador").get("id"), creatorId));
+                }
+                if (estados != null && !estados.isEmpty()) {
+                    predicates.add(root.get("estado").in(estados));
+                }
+                if (prioridad != null && !prioridad.isBlank() && !prioridad.equalsIgnoreCase("todas")) {
+                    predicates.add(cb.equal(cb.lower(root.get("prioridad")), prioridad.trim().toLowerCase()));
+                }
+                if (categoria != null && !categoria.isBlank() && !categoria.equalsIgnoreCase("todas")) {
+                    predicates.add(cb.equal(cb.lower(root.get("categoria")), categoria.trim().toLowerCase()));
+                }
+                return cb.and(predicates.toArray(new Predicate[0]));
+            };
+            incidents = incidentRepository.findAll(spec, pageable);
+        }
         return incidents.map(IncidentDTO::fromEntity);
     }
 

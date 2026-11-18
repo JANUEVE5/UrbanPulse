@@ -11,6 +11,8 @@ import com.example.urbanpulse.dto.UpdateIncidentPriorityRequest;
 import com.example.urbanpulse.dto.UpdateIncidentUrbanAssetRequest;
 import jakarta.validation.Valid;
 import com.example.urbanpulse.service.IncidentService;
+import com.example.urbanpulse.service.IncidentStatus;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -29,6 +31,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 @RestController
@@ -54,9 +58,14 @@ public class IncidentController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    private static final Set<String> ALLOWED_PRIORITIES = Set.of("Baja", "Media", "Alta");
+
     @GetMapping({"", "/mine"})
     public ResponseEntity<PageResponse<IncidentDTO>> getIncidents(
             @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(required = false) String estado,
+            @RequestParam(required = false) String prioridad,
+            @RequestParam(required = false) String categoria,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "" + DEFAULT_PAGE_SIZE) int size,
             @RequestParam(defaultValue = DEFAULT_SORT) String sort
@@ -68,10 +77,77 @@ public class IncidentController {
             );
         }
 
+        String validatedPrioridad = null;
+        if (prioridad != null && !prioridad.isBlank() && !prioridad.equalsIgnoreCase("todas")) {
+            validatedPrioridad = ALLOWED_PRIORITIES.stream()
+                    .filter(p -> p.equalsIgnoreCase(prioridad.trim()))
+                    .findFirst()
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.BAD_REQUEST,
+                            "Prioridad no válida: " + prioridad + ". Valores permitidos: Baja, Media, Alta."
+                    ));
+        }
+
+        String validatedCategoria = (categoria != null && !categoria.isBlank() && !categoria.equalsIgnoreCase("todas"))
+                ? categoria.trim()
+                : null;
+
         Integer creatorId = Integer.valueOf(jwt.getSubject());
         Rol role = Rol.valueOf(jwt.getClaimAsString(SecurityConfig.ROLE_CLAIM));
         Pageable pageable = createPageable(page, size, sort);
-        return ResponseEntity.ok(PageResponse.from(incidentService.getIncidents(creatorId, role, pageable)));
+        List<String> estados = parseEstadoFilter(estado);
+
+        boolean hasExtra = validatedPrioridad != null || validatedCategoria != null;
+        Page<IncidentDTO> incidents;
+        if (!hasExtra && (estados == null || estados.isEmpty())) {
+            incidents = incidentService.getIncidents(creatorId, role, pageable);
+        } else if (!hasExtra) {
+            incidents = incidentService.getIncidents(creatorId, role, estados, pageable);
+        } else {
+            incidents = incidentService.getIncidents(creatorId, role, estados, validatedPrioridad, validatedCategoria, pageable);
+        }
+        return ResponseEntity.ok(PageResponse.from(incidents));
+    }
+
+    private List<String> parseEstadoFilter(String estado) {
+        if (estado == null || estado.isBlank() || estado.equalsIgnoreCase("todas")) {
+            return null;
+        }
+        if (estado.equalsIgnoreCase("activas")) {
+            return List.of(
+                    IncidentStatus.ABIERTA.getLabel(),
+                    IncidentStatus.EN_REVISION.getLabel(),
+                    IncidentStatus.REABIERTA.getLabel()
+            );
+        }
+        if (estado.equalsIgnoreCase("resueltas")) {
+            return List.of(
+                    IncidentStatus.RESUELTA.getLabel(),
+                    IncidentStatus.CERRADA.getLabel()
+            );
+        }
+
+        String[] tokens = estado.split(",");
+        List<String> result = new ArrayList<>();
+        for (String rawToken : tokens) {
+            String token = rawToken.trim();
+            if (token.isEmpty()) continue;
+            IncidentStatus matched = null;
+            for (IncidentStatus s : IncidentStatus.values()) {
+                if (s.getLabel().equalsIgnoreCase(token) || s.name().equalsIgnoreCase(token)) {
+                    matched = s;
+                    break;
+                }
+            }
+            if (matched == null) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Estado no válido: " + token
+                );
+            }
+            result.add(matched.getLabel());
+        }
+        return result.isEmpty() ? null : result;
     }
 
     private Pageable createPageable(int page, int size, String sort) {
