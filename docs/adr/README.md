@@ -73,5 +73,6 @@ Utilizar Redis mediante Cache-Aside.
 | [015](015-sincronizacion-activos-open-data.md) | Sincronización programada de activos urbanos desde Open Data Málaga | Proposed | RF22, RF26 |
 | [016](016-paginacion-listado-incidencias.md) | Paginar el listado de incidencias sin limitar el mapa | Accepted | RF06, RF07 |
 | [017](017-filtrado-incidencias-por-estado-mapa.md) | Filtrado multicriterio de incidencias en la API y límite por defecto en el mapa | Accepted | RF07, RF08 |
+| [018](018-observabilidad-y-pruebas-de-carga.md) | Observabilidad con Micrometer y Prometheus y pruebas de carga con k6 | Proposed | Atributos de calidad (rendimiento, escalabilidad) |
 
 Los ADR en estado `Proposed` están pendientes de que el equipo los revise y los acepte o rechace.
