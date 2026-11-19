@@ -72,6 +72,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         // Página de error de Spring: si no se permite, cualquier error (400, 409…) llegaría como 401
                         .requestMatchers("/error").permitAll()
+                        // Salud y métricas para Prometheus (ADR-018): públicos; el resto de Actuator exige token
+                        .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/prometheus").permitAll()
                         // Registro y login: públicos
                         .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/register").permitAll()
                         // El listado requiere autenticación; el servicio filtra por rol

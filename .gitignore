@@ -39,3 +39,6 @@ CLAUDE.local.md
 
 # --- Volúmenes locales de Docker ---
 .docker-data/
+
+# --- Pruebas de carga: resultados generados por perf/run.sh (se entregan aparte) ---
+perf/resultados/

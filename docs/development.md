@@ -225,6 +225,12 @@ npx tsc --noEmit  # comprobación de tipos
 npx expo lint     # linter
 ```
 
+### Pruebas de carga y métricas
+
+Las pruebas de rendimiento con k6, Prometheus y Grafana están en [`perf/`](../perf/README.md)
+([ADR-018](adr/018-observabilidad-y-pruebas-de-carga.md)). Con la API arrancada, las métricas de Micrometer
+se consultan en <http://localhost:8080/actuator/prometheus>.
+
 ## 7. Flujo de trabajo con Git
 
 Resumen; los detalles están en [CONTRIBUTING.md](../CONTRIBUTING.md).

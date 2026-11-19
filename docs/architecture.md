@@ -84,11 +84,21 @@ flowchart TB
 
     ext["🌐 Fuentes externas<br/>de la ciudad"]
 
+    subgraph obs["Entorno de pruebas de carga (perf/, ADR-018)"]
+        k6["🧪 k6<br/><small>scripts de experimentos</small>"]
+        prom[("📈 Prometheus")]
+        graf["📊 Grafana"]
+    end
+
     user -- "usa" --> app
     app -- "JSON / HTTPS<br/>/api/*" --> api
     api -- "JPA / JDBC" --> db
     api -. "subida y descarga<br/>de ficheros (📋)" .-> obj
     api -- "descarga diaria de<br/>activos urbanos (ADR-015)" --> ext
+    k6 -. "carga HTTP<br/>/api/*" .-> api
+    k6 -. "Remote Write" .-> prom
+    prom -. "lee /actuator/prometheus" .-> api
+    graf -. "consulta" .-> prom
 ```
 
 | Contenedor | Tecnología | Responsabilidad | Estado |
@@ -97,6 +107,7 @@ flowchart TB
 | API REST | Spring Boot 4, Spring MVC, Spring Data JPA, Maven | Punto de entrada único, reglas de negocio y ciclo de vida. | 🚧 |
 | Base de datos | PostgreSQL 15 | Persistencia del dominio y del historial de cambios de estado. | ✅ |
 | Object Storage | S3 / MinIO | Almacenar evidencias binarias fuera de la base de datos relacional. | 📋 |
+| Observabilidad y carga | k6, Prometheus, Grafana (`perf/`) | Solo para pruebas: generar carga, recoger las métricas de k6 y las de Micrometer de la API y mostrarlas en un panel ([ADR-018](adr/018-observabilidad-y-pruebas-de-carga.md)). | 🚧 |
 
 ---
 
@@ -135,12 +146,14 @@ flowchart LR
         sec["config · SecurityConfig<br/><small>Spring Security: valida JWT,<br/>401 / 403 por rol</small>"]
         cfg["config<br/><small>WebConfig (CORS)</small>"]
         sched["config · OpenDataSyncScheduler<br/><small>al arrancar y cada día</small>"]
+        act["Actuator · Micrometer<br/><small>/actuator/health · /actuator/prometheus</small>"]
     end
 
     db[("PostgreSQL")]
     odm["🌐 Open Data Málaga"]
 
     client -- "Authorization: Bearer JWT" --> sec
+    prom["📈 Prometheus"] -. "scrape (ADR-018)" .-> act
     sec --> ac & ic & uc & uac
     ac --> as
     as --> ts & ur
@@ -173,6 +186,8 @@ flowchart LR
 | `PATCH` | `/api/incidents/{id}/urban-asset` | `OPERATOR`, `ADMIN` | Confirma, cambia o quita (`null`) el activo urbano asociado; debe estar a menos de 200 m. | RF22 |
 | `GET` | `/api/urban-assets/nearby?latitud=&longitud=&radio=` | Autenticado | Hasta 10 activos urbanos a menos de `radio` metros (50 por defecto, 200 como máximo), con distancia y confianza. | RF22 |
 | `GET` | `/api/users` | `ADMIN` | Listado de usuarios con su rol (sin contraseñas). | RF02 |
+| `GET` | `/actuator/health` | Público | Estado de la API (sin detalles). | [ADR-018](adr/018-observabilidad-y-pruebas-de-carga.md) |
+| `GET` | `/actuator/prometheus` | Público | Métricas de Micrometer en formato Prometheus (HTTP por URI, JVM, Tomcat, HikariCP). El resto de `/actuator/*` exige token. | [ADR-018](adr/018-observabilidad-y-pruebas-de-carga.md) |
 
 ### Autenticación y autorización ([ADR-009](adr/009-autenticacion-autorizacion-jwt.md))
 
@@ -317,6 +332,7 @@ en el [ADR-008](adr/008-ciclo-vida-maquina-estados.md). Rechazar o reabrir requi
 | Trazabilidad / auditoría | Toda transición queda registrada con actor, instante y motivo. | `StatusChange` de solo inserción, en BD ACID ([ADR-002](adr/002-postgresql-persistencia-principal.md)). |
 | Rendimiento | Las evidencias no penalizan las consultas ni las copias de seguridad. | Object Storage para binarios ([ADR-003](adr/003-object-storage-evidencias.md)). |
 | Mantenibilidad | El equipo puede evolucionar el sistema sin romper otras partes. | Monolito modular con fronteras claras ([ADR-001](adr/001-monolito-modular-spring-boot.md)). |
+| Rendimiento y escalabilidad | La consulta de incidencias responde en menos de 500 ms (p95) con menos del 1 % de errores bajo la carga esperada, y se conoce la capacidad máxima de la API. | Pruebas de carga con k6 y métricas de Micrometer en Prometheus/Grafana ([ADR-018](adr/018-observabilidad-y-pruebas-de-carga.md), `perf/`). |
 | Portabilidad | El mismo artefacto funciona en local, CI y nube. | Configuración por variables de entorno ([ADR-007](adr/007-configuracion-por-entorno-twelve-factor.md)) e imagen de contenedor ([ADR-012](adr/012-despliegue-contenedores.md)). |
 
 ---
@@ -344,3 +360,4 @@ El registro completo está en [`docs/adr/`](adr/README.md).
 | [015](adr/015-sincronizacion-activos-open-data.md) | Sincronización programada de activos urbanos desde Open Data | Proposed |
 | [016](adr/016-paginacion-listado-incidencias.md) | Paginar el listado de incidencias sin limitar el mapa | Accepted |
 | [017](adr/017-filtrado-incidencias-por-estado-mapa.md) | Filtrado multicriterio de incidencias en la API y límite por defecto en el mapa | Accepted |
+| [018](adr/018-observabilidad-y-pruebas-de-carga.md) | Observabilidad con Micrometer y Prometheus y pruebas de carga con k6 | Proposed |
