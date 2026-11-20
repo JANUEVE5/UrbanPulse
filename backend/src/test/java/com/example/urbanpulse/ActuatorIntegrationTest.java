@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * la latencia HTTP por endpoint y el pool de conexiones a PostgreSQL.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = "app.opendata.sync.enabled=false")
+        properties = "app.context-service.projection.enabled=false")
 class ActuatorIntegrationTest {
 
     @LocalServerPort

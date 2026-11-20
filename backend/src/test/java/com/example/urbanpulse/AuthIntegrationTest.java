@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * login con usuarios de prueba, permisos por rol y códigos de error reales (incluida la página /error).
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = "app.opendata.sync.enabled=false")
+        properties = "app.context-service.projection.enabled=false")
 class AuthIntegrationTest {
 
     private static final String DEV_PASSWORD = "urbanpulse-dev";

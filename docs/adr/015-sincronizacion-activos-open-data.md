@@ -2,7 +2,7 @@
 
 ## Estado
 
-Proposed
+Superseded by ADR-019
 
 ## Contexto
 

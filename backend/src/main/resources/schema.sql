@@ -4,7 +4,6 @@ DROP TABLE IF EXISTS "IncidentComment" CASCADE;
 DROP TABLE IF EXISTS "StatusChange" CASCADE;
 DROP TABLE IF EXISTS "Attachment" CASCADE;
 DROP TABLE IF EXISTS "Incident" CASCADE;
-DROP TABLE IF EXISTS "UrbanAsset" CASCADE;
 DROP TABLE IF EXISTS "User" CASCADE;
 
 CREATE TABLE "User" (
@@ -18,7 +17,9 @@ CREATE TABLE "User" (
 
 -- Activos urbanos (RF22, ADR-015): se sincronizan desde Open Data Málaga. Cada activo se identifica
 -- por su fuente y el identificador que tiene en ella, así una nueva sincronización actualiza en vez de duplicar.
-CREATE TABLE "UrbanAsset" (
+-- Esta proyección local persiste entre reinicios: conserva los IDs que utiliza RF22 incluso si
+-- context-service o el proveedor no están disponibles durante el siguiente arranque.
+CREATE TABLE IF NOT EXISTS "UrbanAsset" (
                               id              INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
                               tipo            VARCHAR(50) NOT NULL,
                               nombre          VARCHAR(200),
@@ -33,7 +34,7 @@ CREATE TABLE "UrbanAsset" (
 );
 
 -- Búsqueda de activos cercanos a un punto (por recuadro de latitud y longitud)
-CREATE INDEX idx_urban_asset_posicion ON "UrbanAsset" (latitud, longitud);
+CREATE INDEX IF NOT EXISTS idx_urban_asset_posicion ON "UrbanAsset" (latitud, longitud);
 
 CREATE TABLE "Incident" (
                             id              INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

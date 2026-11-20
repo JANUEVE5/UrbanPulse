@@ -70,9 +70,10 @@ Utilizar Redis mediante Cache-Aside.
 | [012](012-despliegue-contenedores.md) | Despliegue del backend como imagen de contenedor versionada | Proposed | Twelve-Factor |
 | [013](013-listado-de-incidencias-propias.md) | Limitar el mapa y el listado a las incidencias del usuario autenticado | Superseded by ADR-014 | RF06 |
 | [014](014-listado-de-incidencias-segun-rol.md) | Mostrar incidencias según el rol autenticado | Accepted | RF06, RF02 |
-| [015](015-sincronizacion-activos-open-data.md) | Sincronización programada de activos urbanos desde Open Data Málaga | Proposed | RF22, RF26 |
+| [015](015-sincronizacion-activos-open-data.md) | Sincronización programada de activos urbanos desde Open Data Málaga | Superseded by ADR-019 | RF22, RF26 |
 | [016](016-paginacion-listado-incidencias.md) | Paginar el listado de incidencias sin limitar el mapa | Accepted | RF06, RF07 |
 | [017](017-filtrado-incidencias-por-estado-mapa.md) | Filtrado multicriterio de incidencias en la API y límite por defecto en el mapa | Accepted | RF07, RF08 |
 | [018](018-observabilidad-y-pruebas-de-carga.md) | Observabilidad con Micrometer y Prometheus y pruebas de carga con k6 | Proposed | Atributos de calidad (rendimiento, escalabilidad) |
+| [019](019-microservicio-contexto-y-resiliencia-aemet.md) | Extraer el contexto urbano y meteorológico a un microservicio | Proposed | RF22, RF23, RF24, RF26 |
 
 Los ADR en estado `Proposed` están pendientes de que el equipo los revise y los acepte o rechace.

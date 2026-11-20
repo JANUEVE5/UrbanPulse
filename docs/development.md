@@ -8,12 +8,13 @@ Cómo preparar el entorno, ejecutar, probar y contribuir a UrbanPulse en local (
 2. [Preparar el entorno](#2-preparar-el-entorno)
 3. [Base de datos](#3-base-de-datos)
 4. [Ejecutar el backend](#4-ejecutar-el-backend)
-5. [Ejecutar el frontend](#5-ejecutar-el-frontend)
-6. [Ejecutar pruebas y validaciones](#6-ejecutar-pruebas-y-validaciones)
-7. [Flujo de trabajo con Git](#7-flujo-de-trabajo-con-git)
-8. [Variables de entorno](#8-variables-de-entorno)
-9. [Estructura del código](#9-estructura-del-código)
-10. [Problemas frecuentes](#10-problemas-frecuentes)
+5. [Ejecutar context-service](#5-ejecutar-context-service)
+6. [Ejecutar el frontend](#6-ejecutar-el-frontend)
+7. [Ejecutar pruebas y validaciones](#7-ejecutar-pruebas-y-validaciones)
+8. [Flujo de trabajo con Git](#8-flujo-de-trabajo-con-git)
+9. [Variables de entorno](#9-variables-de-entorno)
+10. [Estructura del código](#10-estructura-del-código)
+11. [Problemas frecuentes](#11-problemas-frecuentes)
 
 ---
 
@@ -61,7 +62,8 @@ CREATE DATABASE urbanpulse;
 
 El esquema (`schema.sql`) y los datos de prueba (`data.sql`) se cargan solos al arrancar el backend.
 
-> ⚠️ `schema.sql` **borra y recrea las tablas en cada arranque**. No guardes datos que quieras conservar.
+> ⚠️ El backend reinicializa sus tablas de dominio en cada arranque (la proyección local `"UrbanAsset"` se conserva).
+> El esquema de `context-service` es idempotente y su volumen PostgreSQL independiente conserva la caché.
 
 ## 4. Ejecutar el backend
 
@@ -149,25 +151,33 @@ en las versiones publicadas no se incluye en el código (`src/components/dev-qui
 
 ### Activos urbanos (Open Data Málaga)
 
-`data.sql` ya no crea activos urbanos. Al arrancar, el backend descarga en segundo plano los activos de
-Open Data Málaga (paradas de autobús, contenedores, semáforos, desfibriladores…) y los repite cada día
-([ADR-015](adr/015-sincronizacion-activos-open-data.md)). Tarda unos segundos; en el log aparece una línea
-por fuente y al final un resumen:
-
-```text
-Open Data: sincronización terminada. 8151 activos actualizados; 4 de 22 fuentes sin datos.
-```
-
-Que alguna fuente salga «sin datos» es normal: el portal a veces publica ficheros vacíos o con errores, y en
-ese caso se conservan los activos anteriores. Sin conexión a internet la API funciona igual, pero sin activos;
-para no intentar la descarga, arranca con `OPENDATA_SYNC_ENABLED=false`. Para comprobar que hay activos:
+La sincronización de las 22 fuentes Open Data ahora pertenece a `context-service`. La API principal actualiza
+una proyección local RF22 cada cinco minutos para conservar estables las claves usadas por las incidencias
+([ADR-019](adr/019-microservicio-contexto-y-resiliencia-aemet.md)). Cada fuente fallida conserva sus datos
+anteriores; si el microservicio está fuera de servicio, la API principal conserva la proyección local actual.
+Para comprobar que hay activos:
 
 ```bash
 curl "http://localhost:8080/api/urban-assets/nearby?latitud=36.7187&longitud=-4.4208" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-## 5. Ejecutar el frontend
+## 5. Ejecutar context-service
+
+El servicio de contexto utiliza una base PostgreSQL independiente (puerto local 5433) y escucha en el
+puerto 8082. Docker Compose levanta ambos recursos:
+
+```powershell
+docker compose up -d postgres-context context-service
+```
+
+Configura `AEMET_API_KEY` en `.env` con una clave obtenida del portal oficial de AEMET. No es necesaria para
+arrancar la API; sin ella, el servicio informa degradación y conserva los datos previos si los hubiera.
+La API normalizada acepta `GET http://localhost:8082/api/context?lat=36.72&lon=-4.42`. Los activos cercanos
+se consultan también en `/api/urban-assets/nearby?latitud=36.72&longitud=-4.42&radio=50`. Las sincronizaciones
+se ejecutan en segundo plano y no bloquean la creación de incidencias.
+
+## 6. Ejecutar el frontend
 
 ```bash
 cd frontend
@@ -205,7 +215,7 @@ $env:EXPO_PUBLIC_API_URL="http://<TU_IP_LOCAL>:8080/api"; npx expo start
 También puedes ponerlo en `frontend/.env` (no versionado). Expo carga automáticamente las variables
 `EXPO_PUBLIC_*`.
 
-## 6. Ejecutar pruebas y validaciones
+## 7. Ejecutar pruebas y validaciones
 
 Ejecútalas **antes de abrir un Pull Request**. La CI ejecuta lo mismo.
 
@@ -215,6 +225,9 @@ Ejecútalas **antes de abrir un Pull Request**. La CI ejecuta lo mismo.
 cd backend
 ./mvnw test       # pruebas unitarias y de integración
 ./mvnw verify     # compilación, pruebas y validaciones completas (lo que ejecuta la CI)
+
+cd ../context-service
+./mvnw test       # pruebas del parser y la resiliencia del proveedor
 ```
 
 **Frontend**:
@@ -231,7 +244,7 @@ Las pruebas de rendimiento con k6, Prometheus y Grafana están en [`perf/`](../p
 ([ADR-018](adr/018-observabilidad-y-pruebas-de-carga.md)). Con la API arrancada, las métricas de Micrometer
 se consultan en <http://localhost:8080/actuator/prometheus>.
 
-## 7. Flujo de trabajo con Git
+## 8. Flujo de trabajo con Git
 
 Resumen; los detalles están en [CONTRIBUTING.md](../CONTRIBUTING.md).
 
@@ -249,7 +262,7 @@ git push -u origin feature/nombre-funcionalidad
 - Se usan commits pequeños con [Conventional Commits](https://www.conventionalcommits.org/es/v1.0.0/).
 - Cada PR referencia su issue (`Closes #N`) y necesita la CI en verde y una aprobación.
 
-## 8. Variables de entorno
+## 9. Variables de entorno
 
 Todas están documentadas en [`.env.example`](../.env.example).
 
@@ -262,12 +275,19 @@ Todas están documentadas en [`.env.example`](../.env.example).
 | `SHOW_SQL` | Backend | `true` para ver en los logs las consultas SQL (por defecto `false`). |
 | `JWT_SECRET` | Backend | Clave para firmar los tokens (mínimo 32 caracteres). El valor por defecto solo sirve en local. |
 | `JWT_EXPIRATION_MINUTES` | Backend | Minutos de validez de cada token (por defecto 60). |
-| `OPENDATA_BASE_URL` | Backend | Portal de datos abiertos del que se descargan los activos urbanos. |
-| `OPENDATA_SYNC_ENABLED` | Backend | `false` para no sincronizar los activos (por ejemplo, sin internet). Los tests lo desactivan. |
-| `OPENDATA_SYNC_CRON` | Backend | Cuándo se repite la sincronización (por defecto `0 0 4 * * *`, cada día a las 4:00). |
+| `CONTEXT_POSTGRES_*` | `compose.yaml` | Base PostgreSQL independiente de context-service, puerto 5433 por defecto. |
+| `CONTEXT_DATASOURCE_*` | Context Service | Conexión del servicio a su base de datos. |
+| `CONTEXT_SERVICE_BASE_URL` | Backend | URL de context-service para actualizar la proyección RF22. |
+| `OPENDATA_BASE_URL`, `OPENDATA_SYNC_CRON` | Context Service | Portal Open Data Málaga y horario de sincronización diaria. |
+| `AEMET_API_KEY` | Context Service | Clave de AEMET OpenData; mantenerla solo en variables de entorno. |
+| `AEMET_MUNICIPIO_CODIGO`, `AEMET_STATION_CODE` | Context Service | Municipio de Málaga y código de estación meteorológica (configurable). |
+| `AEMET_SYNC_CRON` | Context Service | Frecuencia de actualización meteorológica (cada hora por defecto). |
+| `CIRCUIT_BREAKER_THRESHOLD`, `CIRCUIT_BREAKER_WAIT_SECONDS` | Context Service | Fallos para abrir el circuito y espera antes de la prueba de recuperación. |
+| `CONTEXT_ASSET_PROJECTION_ENABLED`, `CONTEXT_ASSET_PROJECTION_CRON` | Backend | Habilita y programa la actualización de la proyección local RF22. |
+| `CONTEXT_SYNC_ENABLED` | Context Service | Habilita sincronizaciones de proveedores en segundo plano. |
 | `EXPO_PUBLIC_API_URL` | Frontend | URL base de la API. Es pública: nunca pongas secretos en ella. |
 
-## 9. Estructura del código
+## 10. Estructura del código
 
 ```text
 backend/src/main/java/com/example/urbanpulse/
@@ -288,9 +308,15 @@ frontend/src/
 ├── constants/    # Tema y constantes
 ├── hooks/        # Hooks
 └── services/     # Llamadas HTTP a la API (nunca fetch dentro de componentes)
+
+context-service/src/main/java/com/example/urbanpulse/context/
+├── asset/        # Catálogo Open Data, parser, sincronización y búsqueda de activos
+├── weather/      # Conector AEMET y persistencia de observaciones/predicciones
+├── resilience/   # Circuit breaker independiente por proveedor
+└── ContextController.java
 ```
 
-## 10. Problemas frecuentes
+## 11. Problemas frecuentes
 
 | Síntoma | Causa probable | Solución |
 |---|---|---|
@@ -298,6 +324,6 @@ frontend/src/
 | `password authentication failed` | Las credenciales de `.env` / `application.properties` no coinciden con las de la BD. | Alinea `POSTGRES_PASSWORD` y `SPRING_DATASOURCE_PASSWORD`. |
 | `Port 5432 is already allocated` | Ya hay un PostgreSQL local escuchando. | Páralo o cambia `POSTGRES_PORT` (y la URL de Spring). |
 | La app web muestra un error de CORS al llamar a la API | Abres la web desde un origen que no está en `CORS_ALLOWED_ORIGINS`. | Añade esa URL a `CORS_ALLOWED_ORIGINS` y reinicia el backend. |
-| Al crear una incidencia no aparece ningún elemento urbano cercano | La sincronización aún no ha terminado, o no hay conexión con el portal. | Espera al mensaje «Open Data: sincronización terminada» en el log del backend. |
+| No aparecen activos urbanos cercanos | La primera sincronización de context-service aún no ha terminado, o no hay conexión con el portal. | Comprueba los logs del contenedor `context-service`. |
 | `./mvnw: Permission denied` | El wrapper no tiene permisos de ejecución. | `chmod +x mvnw`. |
 | La app en el móvil no carga datos | El móvil no llega a `localhost`. | Define `EXPO_PUBLIC_API_URL` con la IP de tu equipo. |

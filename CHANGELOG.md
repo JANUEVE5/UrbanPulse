@@ -9,10 +9,12 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ### Added
 
-- RF22: activos urbanos reales desde Open Data Málaga (ADR-015). La API sincroniza al arrancar y cada día
-  22 fuentes (paradas de autobús y taxi, aparcamientos, cargadores, semáforos, cámaras, desfibriladores,
-  hidrantes, contenedores, zonas de musculación, parques caninos…); una fuente caída no afecta a las demás ni
-  a la creación de incidencias. Variables `OPENDATA_BASE_URL`, `OPENDATA_SYNC_ENABLED` y `OPENDATA_SYNC_CRON`.
+- RF22: activos urbanos desde Open Data Málaga sincronizados por `context-service` (ADR-019). La API principal
+  conserva una proyección local para proteger las relaciones de las incidencias; la caída del servicio externo
+  no bloquea la creación ni elimina los activos cacheados.
+- RF23: `context-service` expone `GET /api/context?lat=&lon=` con activos cercanos, observación y predicción
+  AEMET normalizadas. Guarda instante de observación e ingesta, unidades y calidad; conserva la última caché
+  válida mediante circuit breaker por proveedor. La clave AEMET se configura con `AEMET_API_KEY`.
 - RF22: `GET /api/urban-assets/nearby` devuelve los activos a menos de 50 m con su distancia y confianza. Al
   registrar una incidencia se puede elegir uno de ellos (o ninguno) y el operador o la administración pueden
   confirmarlo, cambiarlo o quitarlo desde el detalle (`PATCH /api/incidents/{id}/urban-asset`).
@@ -79,6 +81,7 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 - La app usa siempre el tema claro (se elimina el modo oscuro): el logo, mitad azul, no se distinguía sobre
   fondos oscuros.
 - ADR-010 pasa a `Accepted`.
+- ADR-015 queda sustituido por ADR-019: la sincronización de Open Data pasa del backend al microservicio de contexto.
 - El detalle ya no deduce la posición a partir del nombre de la calle: usa las coordenadas de la API.
 - `IncidentMapView` migrado a TypeScript; `npx tsc --noEmit` vuelve a pasar en el frontend.
 - En web, las pantallas de incidencias empiezan debajo de la barra de pestañas superior.
