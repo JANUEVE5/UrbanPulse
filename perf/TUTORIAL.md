@@ -1,213 +1,191 @@
-# Tutorial: ejecutar la práctica de k6 en el portátil de pruebas
+# Tutorial: ejecutar la práctica de k6 y rellenar el enunciado
 
-Pasos en orden, desde un portátil vacío hasta tener los datos para rellenar el informe. Los detalles de
-cada script están en [README.md](README.md).
+Pasos en orden. Con el modo por defecto (`rapido`), todos los experimentos tardan **~1 hora** en total.
+Los detalles de cada script están en [README.md](README.md).
 
 ---
 
-## Paso 0. Instalar lo necesario (una sola vez)
+## Paso 0. Instalar k6 (una sola vez)
 
-| Herramienta | Comprobar |
-|---|---|
-| Git | `git --version` |
-| Docker + Compose | `docker compose version` |
-| Java 17 | `java -version` |
-| k6 v1.x | `k6 version` |
-| Python 3 (+ `pip install matplotlib`) | `python3 --version` |
-
-Instalación de k6: <https://grafana.com/docs/k6/latest/set-up/install-k6/> (Ubuntu: repositorio apt de
-`dl.k6.io`; macOS: `brew install k6`; Windows: usa **WSL**, porque los scripts son de bash).
-
-Necesitas internet al lanzar las pruebas (k6 descarga una librería de `jslib.k6.io`).
-
-## Paso 1. Descargar el proyecto
+En Arch:
 
 ```bash
-git clone -b feature/pruebas-carga-observabilidad https://github.com/JANUEVE5/UrbanPulse.git
+yay -S k6-bin
 ```
+
+Otros sistemas: <https://grafana.com/docs/k6/latest/set-up/install-k6/>. Comprueba con `k6 version`.
+También hace falta Java 17, Python 3 (`pip install matplotlib` para las gráficas, opcional) e internet
+(k6 descarga una librería de `jslib.k6.io`).
+
+## Paso 1. Ponerse en la rama
 
 ```bash
-cd UrbanPulse && cp .env.example .env
+git fetch && git switch feature/pruebas-carga-observabilidad && git pull
 ```
 
-(Cuando el PR esté fusionado, basta con clonar `main`.)
+(Cuando el PR esté fusionado, basta con `main`.)
 
-## Paso 2. Levantar la infraestructura
+## Paso 2. Base de datos
 
-Base de datos:
+**Opción A: PostgreSQL instalado en el equipo** (el que ya usáis para desarrollar, en el puerto 5432). No
+hay que levantar nada más. Para el experimento 4 los scripts necesitan saber cómo conectarse:
 
 ```bash
-docker compose up -d
+export PSQL="psql -h localhost -U postgres -d urbanpulse" PGPASSWORD=1234
 ```
 
-Prometheus y Grafana:
+(Usa el usuario y la contraseña de tu `.env` si no son los de desarrollo por defecto.)
+
+**Opción B: PostgreSQL en Docker** (`cp .env.example .env` y `docker compose up -d`). Solo si el puerto 5432
+está libre; no hace falta exportar `PSQL`.
+
+## Paso 3. Prometheus y Grafana (opcional pero recomendado)
+
+Si tienes Docker funcionando:
 
 ```bash
 docker compose -f perf/observabilidad/compose.yaml up -d
 ```
 
-Compilar el backend una vez:
+- Prometheus: <http://localhost:9090/targets> → `urbanpulse-api` en verde cuando la API esté arrancada.
+- Grafana: <http://localhost:3000> → panel **UrbanPulse — k6 + backend** (CPU, conexiones a PostgreSQL,
+  hilos…).
+
+Sin Docker las pruebas funcionan igual: se pierde el panel del backend, pero cada ejecución sigue generando
+su `report.html` con las gráficas de k6.
+
+## Paso 4. Arrancar la API
+
+Compila una vez:
 
 ```bash
 cd backend && ./mvnw -q package -DskipTests && cd ..
 ```
 
-Arrancar la API (en una terminal aparte, se queda abierta):
+Arranca en una terminal aparte (se queda abierta):
 
 ```bash
-java -jar backend/target/urbanpulse-*.jar
+java -jar backend/target/urbanpulse-0.0.1-SNAPSHOT.jar
 ```
 
-Comprueba:
+Comprueba que <http://localhost:8080/actuator/health> devuelve `{"status":"UP"}`.
 
-- <http://localhost:8080/actuator/health> devuelve `{"status":"UP"}`.
-- <http://localhost:9090/targets>: `urbanpulse-api` aparece en verde (**UP**).
-- <http://localhost:3000>: se abre Grafana con el panel **UrbanPulse — k6 + backend**.
+> **Reiniciar la API** = `Ctrl+C` y volver a lanzar el `java -jar`. Cada arranque recarga `data.sql`, así que
+> cada experimento parte de los mismos datos.
 
-> **Reiniciar la API** = `Ctrl+C` en su terminal y volver a lanzar `java -jar …`. Cada arranque recarga
-> `data.sql`, así que todos los experimentos empiezan con los mismos datos.
+## Paso 5. Preparar el equipo y anotar el entorno
 
-## Paso 3. Anotar el entorno (para el informe)
+Cierra programas pesados (deja solo la terminal y, si lo usas, Grafana) y deja el portátil enchufado.
+Para el apartado «Entorno de pruebas» del informe:
 
 ```bash
 lscpu | grep -E "Model name|^CPU\(s\)"; free -h | head -2; k6 version; java -version 2>&1 | head -1
 ```
 
-Copia la salida al apartado «Entorno de pruebas» del informe. Cierra el navegador (salvo Grafana) y
-programas pesados, y deja el portátil enchufado.
-
-## Paso 4. Prueba de humo
+## Paso 6. Prueba de humo (1 min)
 
 ```bash
 ./perf/experimentos.sh smoke
 ```
 
-Al final deben salir todos los `checks` en verde y ningún `✗` en los umbrales. Si falla, mira la tabla
-«Problemas habituales» del [README](README.md#4-problemas-habituales) antes de seguir.
+Todo debe salir en verde. Si algo falla, no sigas: revisa «Problemas habituales» en el
+[README](README.md#4-problemas-habituales) o pasa la salida a quien mantenga los scripts.
 
-## Paso 5. Ejecutar los experimentos
+## Paso 7. Experimentos (~1 h)
 
-Antes de **cada** experimento: reinicia la API (paso 2) y abre Grafana con el rango «Last 15 minutes»
-para ir viendo la ejecución. Cuando termine, haz capturas del panel (ver paso 7).
+Reinicia la API antes de cada uno (paso 4).
 
-| Orden | Comando | Duración aprox. |
+| Orden | Comando | Tiempo |
 |---|---|---|
-| 1 | `./perf/experimentos.sh exp1` | 70 min |
-| 2 | `./perf/experimentos.sh exp2a` | 30 min |
-| 3 | `./perf/experimentos.sh exp2b` | 40 min |
-| 4 | `./perf/experimentos.sh exp2c` | 10 min |
-| 5 | `./perf/experimentos.sh exp3` | 25 min |
-| 6 | `./perf/experimentos.sh exp4a` | 25 min |
-| 7 | `./perf/experimentos.sh exp4b` | 60 min o más (no reinicies la API mientras dure) |
+| 1 | `./perf/experimentos.sh exp1` | ~10 min |
+| 2 | `./perf/experimentos.sh exp2` | ~17 min |
+| 3 | `./perf/experimentos.sh exp3` | ~12 min |
+| 4 | `./perf/experimentos.sh exp4` | ~30 min (no reinicies la API mientras dura) |
 
-Consejos:
+- Si en el experimento 2 la latencia p95 sigue por debajo de 500 ms incluso con 100 usuarios virtuales (VUs)
+  o 100 peticiones/s, sube la carga para encontrar el límite, por ejemplo:
+  `EXP2_VUS="100 200 400" EXP2_RATES="150 300" ./perf/experimentos.sh exp2`.
+- Si algo se corta, relanza ese experimento: sus resultados se sobrescriben.
 
-- **Ajusta la carga a tu portátil.** Mira el resultado de `exp2a`: si con 100 usuarios virtuales (VUs) la
-  latencia p95 sigue por debajo de 500 ms, repite con más, por ejemplo `EXP2_VUS="100 200 400" ./perf/experimentos.sh exp2a`.
-  Si con 25 ya falla, usa valores menores. Haz lo mismo con `EXP2_RATES` y con `PEAK_RATE` (exp3).
-- Para lanzar solo una parte: `EXP1_OPS="listar crear" ./perf/experimentos.sh exp1`.
-- Si 1.000.000 de incidencias tarda demasiado: `EXP4B_VOLUMES="1000 10000 100000" ./perf/experimentos.sh exp4b`.
-- Si un experimento se corta, puedes relanzarlo: las repeticiones se sobrescriben en su carpeta.
-
-## Paso 6. Generar tablas y gráficas
+## Paso 8. Tablas y gráficas
 
 ```bash
 python3 perf/analizar.py --graficas
 ```
 
-Se crean:
+- `perf/resultados/resumen.md`: tablas con p50, p95, p99, peticiones/s, errores y `dropped_iterations`
+  (media ± desviación típica de las 3 repeticiones).
+- `perf/resultados/datos.csv`: todas las repeticiones, para hojas de cálculo.
+- `perf/resultados/<experimento>/<experimento>.png`: gráficas con barras de error.
+- `perf/resultados/<experimento>/<config>/rep-N/report.html`: informe de k6 de cada ejecución (ábrelo en el
+  navegador para hacer capturas).
 
-- `perf/resultados/resumen.md`: una tabla por experimento con p50, p95, p99, peticiones/s, errores y
-  `dropped_iterations` (media ± desviación típica de las 3 repeticiones).
-- `perf/resultados/datos.csv`: todas las repeticiones, para hacer tus propias gráficas en una hoja de cálculo.
-- `perf/resultados/<experimento>/<experimento>.png`: barras de error con los puntos de cada repetición.
-- En cada `rep-N/` hay un `report.html` (informe de k6, se abre en el navegador).
+Si usas Grafana, elige la ejecución en el desplegable **Prueba (testid)** (sale en la consola) y haz capturas
+de los experimentos 2, 3 y 4.
 
-## Paso 7. Capturas de Grafana
-
-Para cada experimento, en el panel **UrbanPulse — k6 + backend**:
-
-1. En el desplegable **Prueba (testid)** elige las repeticiones (el `testid` sale en la consola al empezar cada una).
-2. Ajusta el rango de tiempo a la duración de la ejecución.
-3. Captura las dos filas: **k6** (VUs, peticiones/s, p95/p99, errores, `dropped_iterations`) y **Backend**
-   (CPU, conexiones a PostgreSQL de HikariCP, hilos de Tomcat, memoria, latencia por URI).
-
-Las más útiles: exp2c (todo el escalado en una sola gráfica), exp3 (pico y recuperación) y exp4b (con y
-sin índices).
-
-## Paso 8. Rellenar el informe
+## Paso 9. Rellenar el enunciado
 
 ### Experimento 1: ¿qué operaciones son más lentas?
 
-Copia de `resumen.md` → sección `exp1-linea-base` la tabla del enunciado (operación, p50, p95, p99, peticiones/s,
-errores). Responde:
+Copia la tabla de `resumen.md` → `exp1-linea-base` (operación, p50, p95, p99, peticiones/s, errores) y
+responde:
 
-1. **Endpoint con más latencia**: el de mayor p95/p99. Probablemente `login`, por el coste de BCrypt, o `mapa`,
-   que devuelve 100 incidencias.
-2. **¿El más lento tiene el menor throughput?** Con 10 VUs y sin pausas, throughput ≈ 10 / latencia media.
-   Comprueba si se cumple y explica las excepciones.
-3. **p50 frente a p99**: una diferencia grande indica colas, recolección de basura (GC) o bloqueos. Las
-   escrituras bloquean la fila (`SELECT … FOR UPDATE`).
-4. **Qué optimizar primero**: la operación más usada (mapa y listado) que tenga peor p95, no solo la más
-   lenta en términos absolutos.
+1. **Endpoint con mayor latencia**: el de mayor p95/p99. Lo esperable es `login`, por el coste de BCrypt.
+2. **¿El más lento tiene el menor throughput?** Con 10 VUs sin pausas, throughput ≈ 10 / latencia media, así
+   que debería coincidir. Comenta las excepciones.
+3. **p50 frente a p99**: si la distancia es grande, hay colas, pausas de recolección de basura (GC) o bloqueos
+   (las escrituras bloquean la fila con `SELECT … FOR UPDATE`).
+4. **Qué optimizar primero**: la operación muy usada con peor p95 (listar/mapa), no solo la más lenta.
 
 ### Experimento 2: ¿cuál es la capacidad?
 
-- **2a**: tabla por VUs (10/25/50/100) con p95, peticiones/s y errores. Haz una gráfica de throughput frente a
-  VUs y de p95 frente a VUs. **Punto de degradación**: donde el p95 empieza a subir rápido. **Incumplimiento**:
-  el primer nivel con p95 > 500 ms o errores > 1 %. **Capacidad**: el throughput máximo alcanzado.
-- **2b**: tabla por tasa. La capacidad sostenible es la mayor tasa con p95 < 500 ms, errores < 1 % y
+- **2a** (`vus-10` … `vus-100`): una tabla con p95, peticiones/s y errores por nivel. Señala dónde empieza a
+  subir el p95 (degradación) y el primer nivel con p95 > 500 ms o errores > 1 % (incumple requisitos).
+  Explica con estos datos la diferencia entre concurrencia (usuarios simultáneos), capacidad (peticiones/s
+  máximas dentro del requisito) y escalabilidad (cómo crece la capacidad al añadir recursos).
+- **2b** (`rate-25/50/100`): la capacidad es la mayor tasa con p95 < 500 ms, errores < 1 % y
   `dropped_iterations = 0`.
-- **2c**: captura de Grafana con la latencia y las conexiones de HikariCP frente al tiempo, señalando el
-  escalón en el que se satura.
-- **Concurrencia, capacidad y escalabilidad**:
-  - Concurrencia: usuarios o peticiones simultáneos.
-  - Capacidad: peticiones/s máximas que se cumplen dentro del requisito.
-  - Escalabilidad: cómo cambia la capacidad al añadir recursos, por ejemplo instancias o índices; enlaza con el exp4b.
-- **Cuello de botella**: usa el panel del backend. CPU al 100 % → límite de CPU. Conexiones de HikariCP
-  activas = 10 y algunas «esperando» → límite de PostgreSQL o del pool.
+- **2c** (`rampa`): una captura del `report.html` o de Grafana, indicando en qué escalón se satura.
 
 ### Experimento 3: emergencia urbana
 
-En `resumen.md` → `exp3-pico-emergencia`, compara las filas `scenario:base`, `scenario:pico` y
-`scenario:recuperacion` para cada configuración (`mapa-0`, `mapa-50`, `mapa-100`):
+En `resumen.md` → `exp3-pico-emergencia`, compara `scenario:base`, `scenario:pico` y
+`scenario:recuperacion`, con `mapa-0` y con `mapa-50`:
 
-- ¿Aparecen errores o `dropped_iterations` en el pico? ¿Cuánto sube el p95?
-- ¿La fase de recuperación vuelve al p95 de la base? Si no, el sistema arrastra cola.
-- **Pregunta arquitectónica**: compara el p95 de `crear` en el pico con 0 y con 100 usuarios mirando el mapa.
-  Explícalo con la captura de HikariCP: las consultas del mapa ocupan conexiones y las altas tienen que esperar.
+- ¿Hay errores o `dropped_iterations` en el pico? ¿Cuánto sube el p95?
+- ¿La recuperación vuelve al p95 de la base?
+- **Pregunta arquitectónica**: compara el p95 de `crear` en el pico sin y con usuarios mirando el mapa. Lo
+  explica la competencia por el pool de conexiones a PostgreSQL (10 conexiones) y por los hilos (captura de
+  HikariCP en Grafana, si la tienes).
 
-### Experimento 4: lectura/escritura y volumen de datos
+### Experimento 4: operaciones costosas y volumen de datos
 
-- **4a**: tabla `solo-lectura` / `solo-escritura` / `mixto` por operación. ¿Cuánto empeoran las lecturas cuando
-  hay escrituras a la vez, y al revés? ¿Qué operación es la más costosa?
-- **4b**: una tabla por consulta con el p95 en cada volumen (1k/10k/100k/1M), con y sin índices, y una gráfica
-  de p95 frente a nº de incidencias con dos líneas (con y sin índices). Para las estadísticas agregadas usa
-  los ficheros `agregadas-<n>-indices-<si|no>.txt` (líneas `Execution Time`).
-  - **¿Mejorar el esquema aumenta la capacidad sin añadir instancias?** Compara la `pagina_profunda`, el
-    `filtro_combinado` y el `detalle` con 100k/1M incidencias, con y sin índices.
-  - Ojo: la `pagina_profunda` usa OFFSET y sigue siendo lenta incluso con índices.
+- **Lectura/escritura** (`exp4a`): compara cada operación en `solo-lectura`, `solo-escritura` y `mixto`. ¿Cuál
+  empeora más al competir? ¿Cuál es la más costosa?
+- **Volumen** (`exp4b`): una tabla o gráfica del p95 de cada consulta para 1k, 10k y 100k incidencias, con
+  y sin índices. Para las estadísticas agregadas, usa las líneas `Execution Time` de
+  `resultados/exp4b-volumen-datos/agregadas-<n>-indices-<si|no>.txt`.
+- **¿Mejorar el esquema aumenta la capacidad sin más instancias de Spring Boot?** Compara `indices-no` con
+  `indices-si` a 100k. La página profunda usa OFFSET y apenas mejora con índices.
 
-### Cómo se realizaron las pruebas (apartado final del enunciado)
+### ¿Cómo se realizaron las pruebas?
 
-1. **Datos representativos y entorno estabilizado**: `data.sql` (o el volumen sintético del 4b), la API
-   reiniciada antes de cada experimento y 30 s de calentamiento.
-2. **Tres repeticiones** por configuración, con 30 s de enfriamiento entre ellas.
-3. **Variabilidad**: la columna «± desviación típica» de `resumen.md` y las gráficas PNG, que muestran los
-   puntos de cada repetición.
-4. **`dropped_iterations`**: explícalo con el apartado del [README](README.md#dropped_iterations) e indica
-   en qué experimentos apareció (exp2b, exp2c, exp3, exp4a) y a partir de qué tasa.
+1. **Datos y entorno**: `data.sql` o el volumen sintético, la API reiniciada antes de cada experimento y
+   15 s de calentamiento.
+2. **Repeticiones**: 3 por configuración.
+3. **Variabilidad**: la columna «± desviación típica» de `resumen.md` y las gráficas PNG, que muestran cada
+   repetición.
+4. **`dropped_iterations`**: explícala con el apartado del [README](README.md#dropped_iterations) e indica en
+   qué experimentos apareció (2b, 2c, 3, 4a) y a partir de qué tasa.
 
-## Paso 9. Guardar los resultados
-
-`perf/resultados/` no se sube a Git. Comprímelo y pásalo al otro equipo o adjúntalo a la entrega:
+## Paso 10. Guardar y limpiar
 
 ```bash
 tar czf resultados-k6.tgz perf/resultados
 ```
 
-Al terminar, para liberar recursos:
-
 ```bash
-docker compose -f perf/observabilidad/compose.yaml down && docker compose down
+docker compose -f perf/observabilidad/compose.yaml down
 ```
+
+Reinicia la API al terminar para volver a los datos de `data.sql`.
