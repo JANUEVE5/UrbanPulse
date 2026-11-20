@@ -9,7 +9,7 @@ import { OP, WORKLOAD_ENDPOINTS, runWorkload } from '../lib/workload.js';
 const RATES = (__ENV.RATES || '20,50,100,150,200,300').split(',').map(Number);
 const STEP = __ENV.STEP || '1m';
 const RAMP = __ENV.RAMP || '20s';
-const MAX_VUS = Number(__ENV.MAX_VUS || Math.max(...RATES) * 2);
+const MAX_VUS = Number(__ENV.MAX_VUS || Math.min(500, Math.max(...RATES) * 2));
 
 const stages = [];
 for (const rate of RATES) {

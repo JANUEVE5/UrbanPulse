@@ -59,8 +59,10 @@ cd backend && ./mvnw spring-boot:run
 ### Condiciones de medida (mismas en todos los experimentos)
 
 1. Cierra navegadores y procesos pesados; deja el portátil enchufado y en modo rendimiento.
-2. **Reinicia la API antes de cada experimento**: `schema.sql` y `data.sql` se recargan al arrancar, así
-   todos parten de los mismos datos. (Excepción: el 4b carga sus propios datos *después* de arrancar.)
+2. **Mismos datos en cada repetición**: antes de cada una, `run.sh` borra las incidencias creadas por k6
+   (`datos/reiniciar.sql`, `RESET_DB=si`), así que no hace falta reiniciar la API entre experimentos. Necesita
+   acceso a PostgreSQL (ver `datos/psql.sh`; con PostgreSQL local, `export PSQL=… PGPASSWORD=…`). El 4b
+   sustituye los datos: reinicia la API al terminarlo para volver a `data.sql`.
 3. `experimentos.sh` hace un calentamiento corto (`WARMUP`, 15 s) antes de medir y deja un enfriamiento
    (`COOLDOWN`, 10 s) entre repeticiones. Cada configuración se repite 3 veces (`REPS`).
 4. Anota el hardware (CPU, núcleos, RAM) y las versiones (`k6 version`, `java -version`) en el informe.
@@ -83,7 +85,8 @@ Todos los comandos se lanzan desde la raíz del repositorio. Hay dos modos:
 | `rapido` (por defecto) | Lo necesario para rellenar el enunciado: ejecuciones de 15 s–1 min, 3 repeticiones | **~1 h** |
 | `completo` | Más operaciones, niveles y duraciones, y 1.000.000 de incidencias: `MODO=completo ./perf/experimentos.sh …` | ~7 h |
 
-Los tiempos de cada apartado son los del modo rápido. Cualquier valor se cambia con variables de entorno
+Los tiempos y cargas de cada apartado son los del modo rápido, calibrados para un portátil de 16 hilos con k6
+y la API en la misma máquina. Cualquier valor se cambia con variables de entorno
 (ver la cabecera de `experimentos.sh`).
 
 | Requisito de referencia | Valor |
@@ -107,7 +110,7 @@ VU recorre su propia incidencia por transiciones válidas) y `login` (BCrypt). T
 Rellena la tabla del enunciado con `resumen.md` (p50, p95, p99, peticiones/s, errores) y responde:
 endpoint más lento, si coincide con el de menor throughput, diferencia p50–p99 y qué optimizar primero.
 
-### Experimento 2 — ¿Cuál es la capacidad del sistema? (~17 min)
+### Experimento 2 — ¿Cuál es la capacidad del sistema? (~18 min)
 
 ```bash
 ./perf/experimentos.sh exp2
@@ -127,12 +130,12 @@ O por partes:
 ./perf/experimentos.sh exp2c
 ```
 
-- **2a (`constant-vus`)**: 10, 25, 50 y 100 VUs (`EXP2_VUS`), 30 s cada uno. Modelo cerrado: más VUs no implica más
+- **2a (`constant-vus`)**: 10, 50, 100 y 200 VUs (`EXP2_VUS`), 30 s cada uno. Modelo cerrado: más VUs no implica más
   peticiones si la API se satura. Busca el nivel donde el p95 supera 500 ms o el throughput deja de crecer.
-- **2b (`constant-arrival-rate`)**: 25, 50 y 100 iteraciones/s (`EXP2_RATES`), 30 s cada una. Modelo abierto: k6
+- **2b (`constant-arrival-rate`)**: 1.000, 2.000 y 3.000 iteraciones/s (`EXP2_RATES`), 30 s cada una. Modelo abierto: k6
   inicia iteraciones al ritmo pedido aunque la API vaya lenta. La capacidad es la mayor tasa con p95 < 500 ms,
   errores < 1 % y `dropped_iterations = 0`.
-- **2c (`ramping-arrival-rate`)**: escalones de 10 a 200 it/s de 20 s (`EXP2C_RATES`, `EXP2C_STEP`) en una
+- **2c (`ramping-arrival-rate`)**: escalones de 500 a 3.500 it/s de 20 s (`EXP2C_RATES`, `EXP2C_STEP`) en una
   sola ejecución exploratoria (sin repeticiones); se analiza sobre todo en Grafana (latencia y conexiones de HikariCP frente al tiempo).
 - Por defecto la carga es una mezcla realista (`EXP2_OP=mixto`: 35 % mapa, 20 % listado, 20 % detalle,
   15 % altas, 10 % cambios). Para una sola operación: `EXP2_OP=listar`.
@@ -144,12 +147,12 @@ O por partes:
 ./perf/experimentos.sh exp3
 ```
 
-Lluvias intensas: altas de incidencias a 2/s durante 30 s (`base`), 40/s durante 30 s (`pico`) y 2/s
-durante 1 min (`recuperacion`). Se ejecuta sin y con 50 usuarios consultando el mapa a la vez
-(`EXP3_MAP_VUS="0 50"`). El resumen separa latencia y errores por fase (`scenario:base|pico|recuperacion`).
+Lluvias intensas: altas de incidencias a 100/s durante 30 s (`base`), 5.000/s durante 30 s (`pico`) y 100/s
+durante 1 min (`recuperacion`) (`EXP3_BASE_RATE`, `EXP3_PEAK_RATE`). Se ejecuta sin y con 200 usuarios
+consultando el mapa a la vez sin pausa (`EXP3_MAP_VUS="0 200"`). El resumen separa latencia y errores por fase (`scenario:base|pico|recuperacion`).
 
 Compara: errores y p95 en el pico, si la fase de recuperación vuelve a los valores de la base y, para la
-pregunta arquitectónica, cómo cambia la latencia de `crear` en el pico con 0 vs. 50 usuarios en el mapa
+pregunta arquitectónica, cómo cambia la latencia de `crear` en el pico con 0 vs. 200 usuarios en el mapa
 (en Grafana: conexiones de HikariCP activas/en espera, hilos de Tomcat y CPU).
 Ajusta el pico con `PEAK_RATE` si tu equipo lo absorbe sin despeinarse.
 
@@ -167,7 +170,7 @@ Ejecuta el 4a y el 4b seguidos. Por partes:
 ./perf/experimentos.sh exp4a
 ```
 
-Tres ejecuciones de 30 s con tasas fijas: solo lectura (50/s), solo escritura (10 altas/s + 10 cambios/s) y
+Tres ejecuciones de 30 s con tasas fijas: solo lectura (1.000/s), solo escritura (1.000 altas/s + 1.000 cambios/s) y
 mixto (todo a la vez). Compara la latencia de cada operación sola y en competencia. Las modificaciones
 bloquean la fila (`findByIdForUpdate`) e insertan en `StatusChange`/`IncidentComment`.
 
@@ -185,7 +188,7 @@ y filtro combinado. En `MODO=completo` se añaden orden ascendente, listado de u
 con `EXPLAIN ANALYZE` y quedan en `resultados/exp4b-volumen-datos/agregadas-<n>-indices-<si|no>.txt`.
 
 - Necesita acceso a la base de datos: por defecto usa `docker compose exec postgres psql`. Con otro
-  PostgreSQL: `PSQL="psql -h host -U usuario -d urbanpulse" PGPASSWORD=... ./perf/experimentos.sh exp4b`.
+  PostgreSQL: `export PSQL="psql -h host -U usuario -d urbanpulse" PGPASSWORD=...`.
 - No reinicies la API durante el 4b (borraría los datos cargados). Al terminar, reiníciala para volver a
   `data.sql`.
 

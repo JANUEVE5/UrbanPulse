@@ -45,6 +45,8 @@ def load(summary_path):
             continue
         reqs = g.get("http_reqs", {})
         count = reqs.get("count", 0)
+        if not count:
+            continue  # endpoint o escenario sin peticiones en esta ejecución (p. ej. MAP_VUS=0)
         seconds = durations.get(value)
         rps = count / seconds if seconds else reqs.get("rate", count / test_seconds if test_seconds else 0)
         rows.append({
