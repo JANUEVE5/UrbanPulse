@@ -28,7 +28,9 @@ git fetch && git switch feature/pruebas-carga-observabilidad && git pull
 ## Paso 2. Base de datos
 
 **Opción A: PostgreSQL instalado en el equipo** (el que ya usáis para desarrollar, en el puerto 5432). No
-hay que levantar nada más. Para el experimento 4 los scripts necesitan saber cómo conectarse:
+hay que levantar nada más. Los scripts se conectan a ella para borrar entre repeticiones las incidencias
+que crean las pruebas y, en el experimento 4, para cargar volúmenes de datos. Exporta esto **en la misma
+terminal** desde la que vayas a lanzar los experimentos:
 
 ```bash
 export PSQL="psql -h localhost -U postgres -d urbanpulse" PGPASSWORD=1234
@@ -93,18 +95,19 @@ Todo debe salir en verde. Si algo falla, no sigas: revisa «Problemas habituales
 
 ## Paso 7. Experimentos (~1 h)
 
-Reinicia la API antes de cada uno (paso 4).
+No hace falta reiniciar la API entre experimentos: antes de cada repetición se borran automáticamente las
+incidencias creadas por k6. Solo hay que reiniciarla **después del experimento 4**, que sustituye los datos.
 
 | Orden | Comando | Tiempo |
 |---|---|---|
 | 1 | `./perf/experimentos.sh exp1` | ~10 min |
-| 2 | `./perf/experimentos.sh exp2` | ~17 min |
+| 2 | `./perf/experimentos.sh exp2` | ~18 min |
 | 3 | `./perf/experimentos.sh exp3` | ~12 min |
-| 4 | `./perf/experimentos.sh exp4` | ~30 min (no reinicies la API mientras dura) |
+| 4 | `./perf/experimentos.sh exp4` | ~30 min |
 
-- Si en el experimento 2 la latencia p95 sigue por debajo de 500 ms incluso con 100 usuarios virtuales (VUs)
-  o 100 peticiones/s, sube la carga para encontrar el límite, por ejemplo:
-  `EXP2_VUS="100 200 400" EXP2_RATES="150 300" ./perf/experimentos.sh exp2`.
+- Las cargas están calibradas para este PC (16 hilos, k6 y API en la misma máquina): la carga mixta aguanta
+  ~2.500 peticiones/s y a 3.000/s empieza a descartar iteraciones. En un equipo más lento, bájalas, por ejemplo
+  `EXP2_RATES="250 500 1000" EXP3_PEAK_RATE=1000 ./perf/experimentos.sh exp2`.
 - Si algo se corta, relanza ese experimento: sus resultados se sobrescriben.
 
 ## Paso 8. Tablas y gráficas
@@ -139,18 +142,18 @@ responde:
 
 ### Experimento 2: ¿cuál es la capacidad?
 
-- **2a** (`vus-10` … `vus-100`): una tabla con p95, peticiones/s y errores por nivel. Señala dónde empieza a
+- **2a** (`vus-10` … `vus-200`): una tabla con p95, peticiones/s y errores por nivel. Señala dónde empieza a
   subir el p95 (degradación) y el primer nivel con p95 > 500 ms o errores > 1 % (incumple requisitos).
   Explica con estos datos la diferencia entre concurrencia (usuarios simultáneos), capacidad (peticiones/s
   máximas dentro del requisito) y escalabilidad (cómo crece la capacidad al añadir recursos).
-- **2b** (`rate-25/50/100`): la capacidad es la mayor tasa con p95 < 500 ms, errores < 1 % y
+- **2b** (`rate-1000/2000/3000`): la capacidad es la mayor tasa con p95 < 500 ms, errores < 1 % y
   `dropped_iterations = 0`.
 - **2c** (`rampa`): una captura del `report.html` o de Grafana, indicando en qué escalón se satura.
 
 ### Experimento 3: emergencia urbana
 
 En `resumen.md` → `exp3-pico-emergencia`, compara `scenario:base`, `scenario:pico` y
-`scenario:recuperacion`, con `mapa-0` y con `mapa-50`:
+`scenario:recuperacion`, con `mapa-0` y con `mapa-200` (200 usuarios consultando el mapa sin pausa):
 
 - ¿Hay errores o `dropped_iterations` en el pico? ¿Cuánto sube el p95?
 - ¿La recuperación vuelve al p95 de la base?

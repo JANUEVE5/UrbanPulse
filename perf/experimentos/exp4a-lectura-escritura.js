@@ -22,8 +22,9 @@ function flow(exec, rate) {
     rate,
     timeUnit: '1s',
     duration: DURATION,
-    preAllocatedVUs: Math.max(5, Math.ceil(rate / 2)),
-    maxVUs: Math.max(20, rate * 4),
+    // El tope evita que k6 reserve miles de VUs (y de RAM) con tasas altas
+    preAllocatedVUs: Math.min(100, Math.max(5, Math.ceil(rate / 10))),
+    maxVUs: Math.min(500, Math.max(20, rate * 4)),
   };
 }
 
