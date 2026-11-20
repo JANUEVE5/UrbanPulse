@@ -20,5 +20,48 @@ services:
       timeout: 5s
       retries: 5
 
+  postgres-context:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${CONTEXT_POSTGRES_DB:-urbanpulse_context}
+      POSTGRES_USER: ${CONTEXT_POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${CONTEXT_POSTGRES_PASSWORD:?Define CONTEXT_POSTGRES_PASSWORD en .env}
+    ports:
+      - "${CONTEXT_POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres-context-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  context-service:
+    build:
+      context: ./context-service
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: 8082
+      CONTEXT_DATASOURCE_URL: jdbc:postgresql://postgres-context:5432/${CONTEXT_POSTGRES_DB:-urbanpulse_context}
+      CONTEXT_DATASOURCE_USERNAME: ${CONTEXT_POSTGRES_USER:-postgres}
+      CONTEXT_DATASOURCE_PASSWORD: ${CONTEXT_POSTGRES_PASSWORD:?Define CONTEXT_POSTGRES_PASSWORD en .env}
+      AEMET_API_KEY: ${AEMET_API_KEY:-}
+      AEMET_BASE_URL: ${AEMET_BASE_URL:-https://opendata.aemet.es/opendata/api}
+      AEMET_MUNICIPIO_CODIGO: ${AEMET_MUNICIPIO_CODIGO:-29067}
+      AEMET_STATION_CODE: ${AEMET_STATION_CODE:-6156X}
+      AEMET_SYNC_CRON: ${AEMET_SYNC_CRON:-0 0 * * * *}
+      OPENDATA_BASE_URL: ${OPENDATA_BASE_URL:-https://datosabiertos.malaga.eu}
+      OPENDATA_SYNC_CRON: ${OPENDATA_SYNC_CRON:-0 0 4 * * *}
+      CONTEXT_SYNC_ENABLED: ${CONTEXT_SYNC_ENABLED:-true}
+      CIRCUIT_BREAKER_THRESHOLD: ${CIRCUIT_BREAKER_THRESHOLD:-3}
+      CIRCUIT_BREAKER_WAIT_SECONDS: ${CIRCUIT_BREAKER_WAIT_SECONDS:-60}
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres-context:
+        condition: service_healthy
+
 volumes:
   postgres-data:
+  postgres-context-data:

@@ -19,6 +19,8 @@ UrbanPulse es una **aplicación cliente-servidor**:
   metadatos ([ADR-003](adr/003-object-storage-evidencias.md)).
 - Las **fuentes externas de la ciudad** enriquecen la incidencia, pero nunca bloquean su creación
   ([ADR-004](adr/004-degradacion-controlada-api-externa.md)).
+- `context-service` sincroniza Open Data Málaga y AEMET, conserva sus datos en PostgreSQL propio y sirve
+  respuestas degradadas desde la última caché válida ([ADR-019](adr/019-microservicio-contexto-y-resiliencia-aemet.md)).
 - Una **app Expo / React Native** (móvil y web) es el cliente de la ciudadanía y del personal municipal
   ([ADR-005](adr/005-cliente-multiplataforma-expo.md)).
 
@@ -43,8 +45,7 @@ flowchart TB
 
     urbanpulse["🏙️ UrbanPulse<br/><small>Plataforma cloud de gestión<br/>inteligente de incidencias urbanas</small>"]
 
-    ayto["🌐 Datos abiertos / API del Ayuntamiento<br/><small>Activos urbanos, barrios, distritos</small>"]
-    ctx["🌐 Fuentes de contexto<br/><small>Meteorología, tráfico, eventos</small>"]
+    ctx["🌦️ Context Service<br/><small>API de contexto y datos urbanos</small>"]
     notif["✉️ Servicio de notificaciones<br/><small>Push / email</small>"]
 
     ciudadano --> urbanpulse
@@ -52,7 +53,6 @@ flowchart TB
     tecnico --> urbanpulse
     admin --> urbanpulse
     analista --> urbanpulse
-    urbanpulse -- "consulta (degradación controlada)" --> ayto
     urbanpulse -- "consulta (degradación controlada)" --> ctx
     urbanpulse -- "envía avisos" --> notif
 ```
@@ -64,8 +64,9 @@ flowchart TB
 | Técnico | Gestiona su cola de trabajo y documenta la resolución. | 📋 |
 | Administrador | Configura usuarios, roles y catálogos. | 📋 |
 | Analista | Explota indicadores y análisis territoriales. | 📋 |
-| Datos abiertos del Ayuntamiento | Activos urbanos (paradas, contenedores, semáforos…) que se sincronizan cada día ([ADR-015](adr/015-sincronizacion-activos-open-data.md)). Su caída no impide registrar la incidencia. | 🚧 |
-| Fuentes de contexto | Clima, tráfico, eventos. | 📋 |
+| Context Service | API interna para contexto geográfico y meteorológico; mantiene datos cacheados cuando un proveedor no responde ([ADR-019](adr/019-microservicio-contexto-y-resiliencia-aemet.md)). | 🚧 |
+| Open Data Málaga | Aporta activos urbanos que `context-service` sincroniza cada día. | 🚧 |
+| AEMET OpenData | Aporta observaciones de estación y predicción municipal; se consulta con clave configurada por entorno. | 🚧 |
 
 ---
 
@@ -82,7 +83,12 @@ flowchart TB
         obj[("🪣 Object Storage<br/><small>S3 / MinIO · evidencias</small>")]
     end
 
-    ext["🌐 Fuentes externas<br/>de la ciudad"]
+    subgraph ctx["Context Service (ADR-019)"]
+        ctxapi["🌦️ API de contexto<br/><small>Spring Boot · :8082</small>"]
+        ctxdb[("🗄️ PostgreSQL de contexto<br/><small>activos · observaciones · predicción</small>")]
+    end
+    odm["🌐 Open Data Málaga"]
+    aemet["🌤️ AEMET OpenData"]
 
     subgraph obs["Entorno de pruebas de carga (perf/, ADR-018)"]
         k6["🧪 k6<br/><small>scripts de experimentos</small>"]
@@ -94,7 +100,10 @@ flowchart TB
     app -- "JSON / HTTPS<br/>/api/*" --> api
     api -- "JPA / JDBC" --> db
     api -. "subida y descarga<br/>de ficheros (📋)" .-> obj
-    api -- "descarga diaria de<br/>activos urbanos (ADR-015)" --> ext
+    api -- "proyección RF22<br/>cada 5 min" --> ctxapi
+    ctxapi -- "JDBC" --> ctxdb
+    ctxapi -- "sincronización resiliente" --> odm
+    ctxapi -- "observación de estación y<br/>predicción municipal" --> aemet
     k6 -. "carga HTTP<br/>/api/*" .-> api
     k6 -. "Remote Write" .-> prom
     prom -. "lee /actuator/prometheus" .-> api
@@ -106,6 +115,8 @@ flowchart TB
 | App cliente | Expo SDK 58, React Native 0.88, Expo Router, react-native-maps, expo-location | Vista principal de mapa con las incidencias (tarjeta al pulsar un marcador y detalle al pulsar la tarjeta), vista de lista, registro y detalle, inicio de sesión y creación de cuenta, con barra lateral de navegación (fija en escritorio, desplegable en móvil) que muestra el usuario y las secciones según su rol. | 🚧 |
 | API REST | Spring Boot 4, Spring MVC, Spring Data JPA, Maven | Punto de entrada único, reglas de negocio y ciclo de vida. | 🚧 |
 | Base de datos | PostgreSQL 15 | Persistencia del dominio y del historial de cambios de estado. | ✅ |
+| Context Service | Spring Boot 4, Java 17, Spring JDBC, Maven | Sincronización de activos Open Data, ingestión de AEMET, API normalizada y degradación con caché persistida. | 🚧 |
+| Base de datos de contexto | PostgreSQL 15, volumen independiente | Activos, observaciones y predicciones meteorológicas usados como caché local. | 🚧 |
 | Object Storage | S3 / MinIO | Almacenar evidencias binarias fuera de la base de datos relacional. | 📋 |
 | Observabilidad y carga | k6, Prometheus, Grafana (`perf/`) | Solo para pruebas: generar carga, recoger las métricas de k6 y las de Micrometer de la API y mostrarlas en un panel ([ADR-018](adr/018-observabilidad-y-pruebas-de-carga.md)). | 🚧 |
 
@@ -134,7 +145,7 @@ flowchart LR
             ts["TokenService<br/><small>emite JWT</small>"]
             is["IncidentService"]
             uas["UrbanAssetService<br/><small>activos cercanos</small>"]
-            sync["UrbanAssetSyncService<br/><small>OpenDataClient · OpenDataParser</small>"]
+            projection["ContextAssetProjectionClient<br/><small>proyección RF22 desde context-service</small>"]
         end
         subgraph repo["repository"]
             ir["IncidentRepository"]
@@ -145,12 +156,21 @@ flowchart LR
         dto["dto<br/><small>IncidentDTO · CreateIncidentRequest<br/>StatusChangeDTO</small>"]
         sec["config · SecurityConfig<br/><small>Spring Security: valida JWT,<br/>401 / 403 por rol</small>"]
         cfg["config<br/><small>WebConfig (CORS)</small>"]
-        sched["config · OpenDataSyncScheduler<br/><small>al arrancar y cada día</small>"]
+        sched["config · ContextAssetProjectionScheduler<br/><small>al arrancar y cada 5 min</small>"]
         act["Actuator · Micrometer<br/><small>/actuator/health · /actuator/prometheus</small>"]
     end
 
     db[("PostgreSQL")]
+    subgraph context["context-service (Spring Boot · :8082)"]
+        capi["ContextController<br/><small>/api/context</small>"]
+        cquery["ContextQueryService"]
+        cassets["OpenDataSyncService<br/><small>OpenDataClient · OpenDataParser</small>"]
+        caemet["WeatherSyncService · AemetClient"]
+        cdb[("PostgreSQL<br/><small>activos · observaciones · predicción</small>")]
+        cbreaker["ProviderCircuitBreaker<br/><small>por proveedor</small>"]
+    end
     odm["🌐 Open Data Málaga"]
+    aemet["🌤️ AEMET OpenData"]
 
     client -- "Authorization: Bearer JWT" --> sec
     prom["📈 Prometheus"] -. "scrape (ADR-018)" .-> act
@@ -161,9 +181,17 @@ flowchart LR
     is --> ir & sr & ur & uas
     uac --> uas
     uas --> ar
-    sched --> sync
-    sync -- "GeoJSON" --> odm
-    sync -- "upsert (JDBC)" --> db
+    sched --> projection
+    projection -- "GET /api/urban-assets/export" --> capi
+    capi --> cquery
+    cquery --> cdb
+    cassets --> cbreaker
+    cassets -- "GeoJSON" --> odm
+    cassets -- "upsert (JDBC)" --> cdb
+    caemet --> cbreaker
+    caemet -- "observación de estación y predicción" --> aemet
+    caemet -- "instantánea persistida" --> cdb
+    projection -- "upsert local (RF22)" --> db
     uc --> ur
     is -.-> dto
     ir & sr & ur & ar --> db
@@ -185,6 +213,7 @@ flowchart LR
 | `POST` | `/api/incidents/{id}/comments` | Autenticado | Añade un comentario de hasta 400 caracteres atribuido al usuario autenticado. | RF13 |
 | `PATCH` | `/api/incidents/{id}/urban-asset` | `OPERATOR`, `ADMIN` | Confirma, cambia o quita (`null`) el activo urbano asociado; debe estar a menos de 200 m. | RF22 |
 | `GET` | `/api/urban-assets/nearby?latitud=&longitud=&radio=` | Autenticado | Hasta 10 activos urbanos a menos de `radio` metros (50 por defecto, 200 como máximo), con distancia y confianza. | RF22 |
+| `GET` | `http://localhost:8082/api/context?lat=&lon=` | Context Service | Contexto normalizado con activos cercanos, observación AEMET, predicción y estado de degradación. | RF23, RF24 |
 | `GET` | `/api/users` | `ADMIN` | Listado de usuarios con su rol (sin contraseñas). | RF02 |
 | `GET` | `/actuator/health` | Público | Estado de la API (sin detalles). | [ADR-018](adr/018-observabilidad-y-pruebas-de-carga.md) |
 | `GET` | `/actuator/prometheus` | Público | Métricas de Micrometer en formato Prometheus (HTTP por URI, JVM, Tomcat, HikariCP). El resto de `/actuator/*` exige token. | [ADR-018](adr/018-observabilidad-y-pruebas-de-carga.md) |
@@ -282,7 +311,7 @@ classDiagram
 | `User` (`AppUser`) | Ciudadano o profesional que crea, consulta o modifica según sus permisos. Rol: `CITIZEN`, `OPERATOR`, `TECHNICIAN`, `ADMIN` o `ANALYST`; contraseña con BCrypt. | ✅ |
 | `StatusChange` | Transición auditable con actor, instante, motivo y datos asociados. | 🚧 |
 | `Attachment` | Evidencia almacenada fuera de la BD relacional y referenciada por metadatos. | 🚧 (solo nombre) |
-| `UrbanAsset` | Elemento físico (semáforo, contenedor, parada…) con ubicación, fuente e identificador en la fuente. Se sincroniza desde Open Data Málaga; la confianza de la asociación se calcula por distancia ([ADR-015](adr/015-sincronizacion-activos-open-data.md)). | ✅ |
+| `UrbanAsset` | Elemento físico (semáforo, contenedor, parada…) con ubicación, fuente e identificador en la fuente. `context-service` sincroniza Open Data; la API principal conserva una proyección local para las relaciones RF22 ([ADR-019](adr/019-microservicio-contexto-y-resiliencia-aemet.md)). | 🚧 |
 | `UrbanContext` | Contexto reproducible (clima, tráfico, eventos…) de una incidencia o zona. | 📋 |
 | `Assignment` | Relación temporal entre incidencia y departamento, equipo o técnico. | 📋 |
 | `ExternalObservation` | Dato normalizado con fuente, instante de observación e ingesta, unidad y calidad. | 📋 |
@@ -357,7 +386,8 @@ El registro completo está en [`docs/adr/`](adr/README.md).
 | [012](adr/012-despliegue-contenedores.md) | Despliegue como imagen de contenedor | Proposed |
 | [013](adr/013-listado-de-incidencias-propias.md) | Listado de incidencias propias en el mapa y la vista de lista | Superseded by ADR-014 |
 | [014](adr/014-listado-de-incidencias-segun-rol.md) | Mostrar incidencias según el rol autenticado | Accepted |
-| [015](adr/015-sincronizacion-activos-open-data.md) | Sincronización programada de activos urbanos desde Open Data | Proposed |
+| [015](adr/015-sincronizacion-activos-open-data.md) | Sincronización programada de activos urbanos desde Open Data | Superseded by ADR-019 |
 | [016](adr/016-paginacion-listado-incidencias.md) | Paginar el listado de incidencias sin limitar el mapa | Accepted |
 | [017](adr/017-filtrado-incidencias-por-estado-mapa.md) | Filtrado multicriterio de incidencias en la API y límite por defecto en el mapa | Accepted |
 | [018](adr/018-observabilidad-y-pruebas-de-carga.md) | Observabilidad con Micrometer y Prometheus y pruebas de carga con k6 | Proposed |
+| [019](adr/019-microservicio-contexto-y-resiliencia-aemet.md) | Contexto urbano y meteorológico en un microservicio con degradación resiliente | Proposed |
