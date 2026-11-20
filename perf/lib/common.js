@@ -96,7 +96,7 @@ export function newIncident(overrides = {}) {
     descripcion: 'Incidencia generada por una prueba de carga con k6.',
     categoria: pick(CATEGORIES),
     prioridad: pick(PRIORITIES),
-    localizacion: 'Málaga',
+    localizacion: 'Málaga (k6)', // marca para borrarlas entre repeticiones (datos/reiniciar.sql)
     ...randomPoint(),
     ...overrides,
   };

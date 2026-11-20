@@ -9,7 +9,8 @@ import { OP, WORKLOAD_ENDPOINTS, runWorkload } from '../lib/workload.js';
 
 const RATE = Number(__ENV.RATE || 50);
 const DURATION = __ENV.DURATION || '2m';
-const MAX_VUS = Number(__ENV.MAX_VUS || Math.max(100, RATE * 2));
+// VUs necesarias ≈ tasa × duración de la iteración. El tope evita que k6 reserve miles de VUs (y de RAM).
+const MAX_VUS = Number(__ENV.MAX_VUS || Math.min(500, Math.max(100, RATE * 2)));
 
 export const options = {
   scenarios: {
@@ -18,7 +19,7 @@ export const options = {
       rate: RATE,
       timeUnit: '1s',
       duration: DURATION,
-      preAllocatedVUs: Number(__ENV.PRE_VUS || Math.min(MAX_VUS, Math.max(10, Math.ceil(RATE / 2)))),
+      preAllocatedVUs: Number(__ENV.PRE_VUS || Math.min(100, MAX_VUS, Math.max(10, Math.ceil(RATE / 10)))),
       maxVUs: MAX_VUS,
     },
   },

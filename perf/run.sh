@@ -5,7 +5,8 @@
 #   ./perf/run.sh experimentos/exp1-linea-base.js op-listar        # con OP=listar en el entorno
 #   VUS=50 OP=mixto ./perf/run.sh experimentos/exp2a-capacidad-vus.js vus-50
 #
-# Variables: REPS (3), COOLDOWN segundos entre repeticiones (30), PROMETHEUS=auto|si|no (auto: envía
+# Variables: REPS (3), COOLDOWN segundos entre repeticiones (30), RESET_DB=si para borrar antes de cada
+# repetición las incidencias creadas por k6 (datos/reiniciar.sql), PROMETHEUS=auto|si|no (auto: envía
 # las métricas a Prometheus si responde en PROMETHEUS_URL), K6 (binario de k6) y cualquier variable
 # que lea el script (k6 pasa el entorno a __ENV).
 set -euo pipefail
@@ -37,6 +38,10 @@ for ((i = 1; i <= REPS; i++)); do
   OUT="$OUT_BASE/rep-$i"
   mkdir -p "$OUT"
   TESTID="$EXP-$LABEL-rep$i-$(date +%Y%m%d-%H%M%S)"
+  if [[ "${RESET_DB:-no}" == "si" ]]; then
+    echo "» Reiniciando los datos (borra las incidencias creadas por k6)…"
+    "$PERF/datos/psql.sh" -q < "$PERF/datos/reiniciar.sql" >/dev/null
+  fi
   echo "════ $EXP [$LABEL] repetición $i/$REPS → $OUT (testid=$TESTID)"
   set +e
   SUMMARY_FILE="$OUT/summary.json" LABEL="$LABEL" \
